@@ -5,7 +5,7 @@ import { AUTH_ROUTES, PROTECTED_ROUTES, TOKEN_KEYS } from "@/constants";
 const authPaths = new Set<string>(AUTH_ROUTES);
 const protectedPaths = PROTECTED_ROUTES;
 
-export function middleware(request: NextRequest) {
+export  function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(TOKEN_KEYS.ACCESS)?.value;
 

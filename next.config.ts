@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import withFlowbiteReact from "flowbite-react/plugin/nextjs";
+
 
 const nextConfig: NextConfig = {
   images: {
@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "localhost" },
     ],
   },
+  experimental: {
+    turbopackFileSystemCacheForDev: false,
+  }
 };
 
-export default withFlowbiteReact(nextConfig);
+export default nextConfig;

@@ -6,6 +6,21 @@ import type { ApiError, AuthTokens } from "@/types";
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
 
+// المسارات العامة اللي المستخدم مش محتاج يكون مسجل دخول عشان يشوفها
+const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
+
+function isPublicPath(): boolean {
+  if (typeof window === "undefined") return false;
+  return PUBLIC_PATHS.some((path) => window.location.pathname.startsWith(path));
+}
+
+function redirectToLogin(): void {
+  // منع الـ reload لو إحنا أصلاً في صفحة عامة (بيمنع الـ infinite reload loop)
+  if (typeof window !== "undefined" && !isPublicPath()) {
+    window.location.href = "/login";
+  }
+}
+
 function subscribeTokenRefresh(cb: (token: string) => void) {
   refreshSubscribers.push(cb);
 }
@@ -41,9 +56,7 @@ axiosInstance.interceptors.response.use(
 
       if (!refreshToken) {
         clearTokens();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
-        }
+        redirectToLogin();
         return Promise.reject(error);
       }
 
@@ -74,9 +87,7 @@ axiosInstance.interceptors.response.use(
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         clearTokens();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
-        }
+        redirectToLogin();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
