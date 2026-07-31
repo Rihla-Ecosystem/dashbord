@@ -1,3 +1,5 @@
+import type { UserRole } from "@/types";
+
 export const APP_NAME = "Rihla Admin";
 export const APP_DESCRIPTION = "Enterprise admin dashboard for Rihla platform";
 
@@ -43,19 +45,32 @@ export const QUERY_KEYS = {
   environment: ["environment"] as const,
   geoSearch: (params?: unknown) => ["geo-search", params] as const,
   geoPois: (params?: unknown) => ["geo-pois", params] as const,
+  payments: (params?: unknown) => ["payments", params] as const,
+  payment: (id: string) => ["payment", id] as const,
+  tokenPackages: (params?: unknown) => ["token-packages", params] as const,
+  tokenPackage: (id: number) => ["token-package", id] as const,
   dashboardStats: ["dashboard-stats"] as const,
 } as const;
 
-export const NAV_ITEMS = [
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: string;
+  roles?: UserRole[];
+}
+
+export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/users", label: "Users", icon: "users", roles: ["ADMIN", "MODERATOR"] },
   { href: "/roles", label: "Roles", icon: "roles", roles: ["ADMIN"] },
   { href: "/badges", label: "Badges", icon: "badges", roles: ["ADMIN", "MODERATOR"] },
   { href: "/geo", label: "Geo Services", icon: "geo" },
   { href: "/environment", label: "Environment", icon: "environment" },
+  { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
+  { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" },
-] as const;
+];
 
 export const AUTH_ROUTES = [
   "/login",
@@ -72,6 +87,8 @@ export const PROTECTED_ROUTES = [
   "/badges",
   "/geo",
   "/environment",
+  "/payments",
+  "/token-packages",
   "/audit-logs",
   "/settings",
   "/profile",

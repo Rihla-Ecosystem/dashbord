@@ -96,6 +96,7 @@ axiosInstance.interceptors.response.use(
 
     const apiError: ApiError = {
       message:
+        error.response?.data?.error ??
         error.response?.data?.message ??
         error.message ??
         "An unexpected error occurred",

@@ -12,7 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { authApi, clearTokens, setTokens, usersApi } from "@/services/api";
 import type { LoginRequest, RegisterRequest, User, UserRole } from "@/types";
-import { getErrorMessage, hasRole, isModeratorOrAbove } from "@/utils";
+import { getErrorMessage, hasRole, isModeratorOrAbove, normalizeRoleName } from "@/utils";
 import { toast } from "sonner";
 
 interface AuthContextValue {
@@ -30,6 +30,10 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function withNormalizedRole(user: User): User {
+  return { ...user, role: normalizeRoleName(user.role) ?? user.role };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const { data } = await usersApi.getMe();
-      setUser(data);
+      setUser(withNormalizedRole(data));
     } catch {
       setUser(null);
       clearTokens();
@@ -57,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
         });
-        setUser(response.user);
+        setUser(withNormalizedRole(response.user));
         toast.success("Welcome back!");
         router.push("/dashboard");
       } catch (error) {
@@ -76,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           accessToken: response.accessToken,
           refreshToken: response.refreshToken,
         });
-        setUser(response.user);
+        setUser(withNormalizedRole(response.user));
         toast.success("Account created successfully!");
         router.push("/dashboard");
       } catch (error) {
