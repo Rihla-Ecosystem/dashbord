@@ -33,6 +33,8 @@ export const GENDER_OPTIONS = [
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+export const MAX_TOKEN_BALANCE = 2_147_483_647;
+
 export const SIDEBAR_WIDTH = 280;
 export const SIDEBAR_COLLAPSED_WIDTH = 72;
 
@@ -49,6 +51,11 @@ export const QUERY_KEYS = {
   payment: (id: string) => ["payment", id] as const,
   tokenPackages: (params?: unknown) => ["token-packages", params] as const,
   tokenPackage: (id: number) => ["token-package", id] as const,
+  adminTokenWallets: (params?: unknown) =>
+    ["admin-token-wallets", params] as const,
+  adminTokenWallet: (userId: string) => ["admin-token-wallet", userId] as const,
+  adminTokenTransactions: (userId: string, params?: unknown) =>
+    ["admin-token-transactions", userId, params] as const,
   dashboardStats: ["dashboard-stats"] as const,
 } as const;
 
@@ -68,6 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/environment", label: "Environment", icon: "environment" },
   { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
   { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
+  { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
@@ -89,6 +97,7 @@ export const PROTECTED_ROUTES = [
   "/environment",
   "/payments",
   "/token-packages",
+  "/token-wallets",
   "/audit-logs",
   "/settings",
   "/profile",

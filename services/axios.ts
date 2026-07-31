@@ -102,6 +102,7 @@ axiosInstance.interceptors.response.use(
         "An unexpected error occurred",
       statusCode: error.response?.status,
       errors: error.response?.data?.errors,
+      details: error.response?.data?.details,
     };
 
     return Promise.reject(apiError);

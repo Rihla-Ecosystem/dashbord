@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sidebar as FlowbiteSidebar, SidebarItem, SidebarItemGroup, SidebarItems, SidebarLogo } from "flowbite-react";
+import { Sidebar as FlowbiteSidebar, SidebarItem, SidebarItemGroup, SidebarItems } from "flowbite-react";
 import {
   HiOutlineViewGrid,
   HiOutlineUsers,
@@ -12,6 +12,7 @@ import {
   HiOutlineCloud,
   HiOutlineCash,
   HiOutlineCube,
+  HiOutlineCreditCard,
   HiOutlineClipboardList,
   HiOutlineCog,
   HiOutlineLogout,
@@ -31,6 +32,7 @@ const iconMap: Record<string, React.ReactNode> = {
   environment: <HiOutlineCloud className="size-5" />,
   payments: <HiOutlineCash className="size-5" />,
   tokenPackages: <HiOutlineCube className="size-5" />,
+  tokenWallets: <HiOutlineCreditCard className="size-5" />,
   audit: <HiOutlineClipboardList className="size-5" />,
   settings: <HiOutlineCog className="size-5" />,
 };

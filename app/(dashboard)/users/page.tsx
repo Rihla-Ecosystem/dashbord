@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield, Coins } from "lucide-react";
+import { useAuth } from "@/features/auth/auth-context";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { DataTable } from "@/components/shared/DataTable";
@@ -30,10 +31,11 @@ import {
 } from "@/components/ui/select";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
-import { formatDate, formatXp, getInitials, debounce } from "@/utils";
+import { formatDate, formatXp, getInitials } from "@/utils";
 import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
 
 export default function UsersPage() {
+  const { isAdmin } = useAuth();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
@@ -45,13 +47,19 @@ export default function UsersPage() {
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: User; role: UserRole } | null>(null);
 
-  const debouncedSetSearch = useCallback(
-    debounce((v: string) => {
-      setDebouncedSearch(v);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((value: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
       setPage(1);
-    }, 300),
-    []
-  );
+      searchTimerRef.current = null;
+    }, 300);
+  }, []);
+
+  useEffect(() => () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  }, []);
 
   const sortBy = sorting[0]?.id;
   const sortOrder = sorting[0]?.desc ? "desc" : "asc";
@@ -135,6 +143,9 @@ export default function UsersPage() {
               <DropdownMenuItem render={<Link href={`/users/${row.original.id}?edit=true`} />}>
                 <Pencil className="size-4" /> Edit
               </DropdownMenuItem>
+              {isAdmin && <DropdownMenuItem render={<Link href={`/token-wallets/${row.original.id}`} />}>
+                <Coins className="size-4" /> Manage Tokens
+              </DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setRoleTarget({ user: row.original, role: "MODERATOR" })}>
                 <Shield className="size-4" /> Change Role
@@ -153,7 +164,7 @@ export default function UsersPage() {
         ),
       },
     ],
-    []
+    [isAdmin]
   );
 
   const hasFilters = !!(role || gender || verified);
@@ -169,7 +180,7 @@ export default function UsersPage() {
           value={search}
           onChange={(v) => {
             setSearch(v);
-            debouncedSetSearch(v);
+            handleSearchChange(v);
           }}
           placeholder="Search by name or email..."
           className="flex-1"
