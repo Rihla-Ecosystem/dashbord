@@ -19,7 +19,6 @@ import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/features/auth/auth-context";
 import { ROLE_LABELS } from "@/constants";
 import { getInitials } from "@/utils";
-import { cn } from "@/lib/utils";
 
 interface NavbarProps {
   onSidebarToggle?: () => void;

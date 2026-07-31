@@ -1,13 +1,13 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminApi } from "@/services/api";
+import { dashboardApi } from "@/services/api";
 import { QUERY_KEYS, DEFAULT_PAGE_SIZE } from "@/constants";
-import type { UsersQueryParams, UserRole } from "@/types";
+import type { DashboardUserFilters, UserRole } from "@/types";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/utils";
 
-export function useUsers(params?: UsersQueryParams) {
+export function useUsers(params?: DashboardUserFilters) {
   const queryParams = {
     page: 1,
     limit: DEFAULT_PAGE_SIZE,
@@ -15,8 +15,8 @@ export function useUsers(params?: UsersQueryParams) {
   };
 
   return useQuery({
-    queryKey: QUERY_KEYS.users(queryParams),
-    queryFn: () => adminApi.getUsers(queryParams).then((r) => r.data),
+    queryKey: QUERY_KEYS.dashboardUsers(queryParams),
+    queryFn: () => dashboardApi.getUsers(queryParams),
   });
 }
 
@@ -24,11 +24,11 @@ export function useUserMutations() {
   const queryClient = useQueryClient();
 
   const invalidateUsers = () =>
-    queryClient.invalidateQueries({ queryKey: ["users"] });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboardUsers() });
 
   const updateRole = useMutation({
     mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
-      adminApi.updateUserRole(id, role).then((r) => r.data),
+      dashboardApi.updateUserRole(id, role === "ADMIN" ? 3 : role === "MODERATOR" ? 2 : 1),
     onSuccess: () => {
       toast.success("Role updated successfully");
       invalidateUsers();
@@ -37,8 +37,8 @@ export function useUserMutations() {
   });
 
   const banUser = useMutation({
-    mutationFn: ({ id, banned, reason }: { id: string; banned: boolean; reason?: string }) =>
-      adminApi.banUser(id, banned, reason).then((r) => r.data),
+    mutationFn: ({ id, banned }: { id: string; banned: boolean; reason?: string }) =>
+      dashboardApi.banUser(id, banned),
     onSuccess: (_, { banned }) => {
       toast.success(banned ? "User banned" : "User unbanned");
       invalidateUsers();

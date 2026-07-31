@@ -46,7 +46,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-2">
             <Select value={theme ?? "system"} onValueChange={setTheme}>
-              <SelectTrigger className="w-[130px] rounded-xl">
+              <SelectTrigger className="w-32 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -70,7 +70,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Select defaultValue="en">
-            <SelectTrigger className="w-[130px] rounded-xl">
+            <SelectTrigger className="w-32 rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

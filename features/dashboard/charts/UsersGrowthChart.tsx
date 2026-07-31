@@ -12,18 +12,26 @@ import {
 import { ChartCard } from "@/components/shared/ChartCard";
 import type { User } from "@/types";
 import { format, parseISO, subMonths } from "date-fns";
+import type { DashboardSeriesPoint } from "@/types";
 
 interface UsersGrowthChartProps {
   users: User[];
+  series?: DashboardSeriesPoint[];
 }
 
-export function UsersGrowthChart({ users }: UsersGrowthChartProps) {
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const date = subMonths(new Date(), 5 - i);
-    const key = format(date, "yyyy-MM");
-    const count = users.filter((u) => format(parseISO(u.createdAt), "yyyy-MM") <= key).length;
-    return { name: format(date, "MMM"), users: count || Math.floor(Math.random() * 10) + i * 5 };
-  });
+export function UsersGrowthChart({ users, series }: UsersGrowthChartProps) {
+  const months =
+    series?.length
+      ? series.map((point) => ({ name: point.name, users: Number(point.value) }))
+      : Array.from({ length: 6 }, (_, i) => {
+          const date = subMonths(new Date(), 5 - i);
+          const nextDate = subMonths(new Date(), 4 - i);
+          const count = users.filter((u) => {
+            const created = parseISO(u.createdAt);
+            return created >= date && created < nextDate;
+          }).length;
+          return { name: format(date, "MMM"), users: count };
+        });
 
   return (
     <ChartCard title="Users Growth" description="New user registrations over time">

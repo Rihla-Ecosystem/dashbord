@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MapPin, Globe, Calendar, Zap } from "lucide-react";
+import { ArrowLeft, MapPin, Globe, Calendar, Zap, Shield, Trash2, RotateCcw, Ban, BadgeCheck, Power, ZapOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageLoader } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -12,6 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useUserBadges } from "@/hooks/useUser";
 import { formatDate, getInitials } from "@/utils";
 import { use } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { dashboardApi } from "@/services/api";
+import { QUERY_KEYS } from "@/constants";
+import { toast } from "sonner";
+import { getErrorMessage, formatXp } from "@/utils";
+import { ActivityTimeline } from "@/features/dashboard/ActivityTimeline";
+import { ChartCard } from "@/components/shared/ChartCard";
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from "recharts";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -21,6 +29,92 @@ export default function UserDetailsPage({ params }: PageProps) {
   const { id } = use(params);
   const { data: user, isLoading, error, refetch } = useUser(id);
   const { data: badges } = useUserBadges(id);
+  const statsQuery = useQuery({
+    queryKey: QUERY_KEYS.dashboardUserStats(id),
+    queryFn: () => dashboardApi.getUserStatistics(id),
+    enabled: !!id,
+  });
+  const activityQuery = useQuery({
+    queryKey: QUERY_KEYS.dashboardActivity({ userId: id }),
+    queryFn: () => dashboardApi.getAdminTimeline({ limit: 20 }),
+    enabled: !!id,
+  });
+
+  const invalidate = () => {
+    void refetch();
+  };
+
+  const banMutation = useMutation({
+    mutationFn: (banned: boolean) => dashboardApi.banUser(id, banned),
+    onSuccess: (_, banned) => {
+      toast.success(banned ? "User banned" : "User unbanned");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: () => dashboardApi.activateUser(id),
+    onSuccess: () => {
+      toast.success("User activated");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: () => dashboardApi.deactivateUser(id),
+    onSuccess: () => {
+      toast.success("User deactivated");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: () => dashboardApi.verifyUserEmail(id),
+    onSuccess: () => {
+      toast.success("Email verified");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const resetXpMutation = useMutation({
+    mutationFn: () => dashboardApi.resetUserXp(id),
+    onSuccess: () => {
+      toast.success("XP reset");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const resetWalletMutation = useMutation({
+    mutationFn: () => dashboardApi.resetUserWallet(id),
+    onSuccess: () => {
+      toast.success("Wallet reset");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: () => dashboardApi.restoreUser(id),
+    onSuccess: () => {
+      toast.success("User restored");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => dashboardApi.deleteUser(id),
+    onSuccess: () => {
+      toast.success("User deleted");
+      invalidate();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
 
   if (isLoading) return <PageLoader />;
   if (error || !user) return <ErrorState onRetry={() => refetch()} />;
@@ -59,6 +153,19 @@ export default function UserDetailsPage({ params }: PageProps) {
         </DashboardCard>
 
         <div className="space-y-6 lg:col-span-2">
+          <DashboardCard title="Actions" description="Administrative controls for this account">
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <Button variant="outline" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><BadgeCheck className="size-4" /> Verify Email</Button>
+              <Button variant="outline" onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}><Power className="size-4" /> Activate</Button>
+              <Button variant="outline" onClick={() => deactivateMutation.mutate()} disabled={deactivateMutation.isPending}><Ban className="size-4" /> Deactivate</Button>
+              <Button variant="outline" onClick={() => banMutation.mutate(!user.banned)} disabled={banMutation.isPending}><Shield className="size-4" /> {user.banned ? "Unban" : "Ban"}</Button>
+              <Button variant="outline" onClick={() => resetXpMutation.mutate()} disabled={resetXpMutation.isPending}><ZapOff className="size-4" /> Reset XP</Button>
+              <Button variant="outline" onClick={() => resetWalletMutation.mutate()} disabled={resetWalletMutation.isPending}><RotateCcw className="size-4" /> Reset Wallet</Button>
+              <Button variant="outline" onClick={() => restoreMutation.mutate()} disabled={restoreMutation.isPending}><RotateCcw className="size-4" /> Restore</Button>
+              <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}><Trash2 className="size-4" /> Delete</Button>
+            </div>
+          </DashboardCard>
+
           <DashboardCard title="Travel Details">
             <div className="grid gap-4 sm:grid-cols-2">
               <InfoItem icon={<Globe className="size-4" />} label="Nationality" value={user.nationality ?? "—"} />
@@ -74,7 +181,7 @@ export default function UserDetailsPage({ params }: PageProps) {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="rounded-xl bg-muted/50 p-4 text-center">
                 <Zap className="mx-auto mb-2 size-5 text-amber-500" />
-                <p className="text-2xl font-bold">{user.xp.toLocaleString()}</p>
+                <p className="text-2xl font-bold">{formatXp(user.xp)}</p>
                 <p className="text-xs text-muted-foreground">XP</p>
               </div>
               <div className="rounded-xl bg-muted/50 p-4 text-center">
@@ -86,6 +193,22 @@ export default function UserDetailsPage({ params }: PageProps) {
                 <p className="text-xs text-muted-foreground">Role</p>
               </div>
             </div>
+          </DashboardCard>
+
+          <ChartCard title="User Statistics" description="Wallet, XP, badges and journey summary" height={260}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={Object.entries((statsQuery.data as Record<string, unknown>) ?? {}).filter(([, value]) => typeof value === "number").map(([name, value]) => ({ name, value: Number(value) }))}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <DashboardCard title="Timeline" description="Recent admin and user activity">
+            <ActivityTimeline logs={activityQuery.data?.data ?? []} />
           </DashboardCard>
 
           {user.languages && user.languages.length > 0 && (

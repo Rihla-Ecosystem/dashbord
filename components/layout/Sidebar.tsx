@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sidebar as FlowbiteSidebar, SidebarItem, SidebarItemGroup, SidebarItems, SidebarLogo } from "flowbite-react";
+import { Sidebar as FlowbiteSidebar, SidebarItem, SidebarItemGroup, SidebarItems } from "flowbite-react";
 import {
   HiOutlineViewGrid,
+  HiOutlineChartBar,
   HiOutlineUsers,
   HiOutlineShieldCheck,
   HiOutlineBadgeCheck,
@@ -23,6 +24,7 @@ import type { UserRole } from "@/types";
 
 const iconMap: Record<string, React.ReactNode> = {
   dashboard: <HiOutlineViewGrid className="size-5" />,
+  analytics: <HiOutlineChartBar className="size-5" />,
   users: <HiOutlineUsers className="size-5" />,
   roles: <HiOutlineShieldCheck className="size-5" />,
   badges: <HiOutlineBadgeCheck className="size-5" />,

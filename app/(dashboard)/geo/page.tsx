@@ -26,7 +26,7 @@ export default function GeoPage() {
   const [category, setCategory] = useState("");
   const [lat, setLat] = useState("24.7136");
   const [lng, setLng] = useState("46.6753");
-  const [radius, setRadius] = useState("5000");
+  const [radius] = useState("5000");
 
   const { data: searchResults, isLoading: searchLoading, error: searchError } = useGeoSearch(
     { q: debouncedQuery, lat: Number(lat), lng: Number(lng), radius: Number(radius) },
@@ -80,7 +80,7 @@ export default function GeoPage() {
           className="h-9 w-32 rounded-xl"
         />
         <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
-          <SelectTrigger className="h-9 w-[140px] rounded-xl">
+          <SelectTrigger className="h-9 w-35 rounded-xl">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>

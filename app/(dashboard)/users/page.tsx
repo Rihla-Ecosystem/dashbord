@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield } from "lucide-react";
+import { Users, BadgeCheck } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { DataTable } from "@/components/shared/DataTable";
@@ -12,8 +13,10 @@ import { Pagination } from "@/components/shared/Pagination";
 import { RoleBadge, StatusBadge } from "@/components/shared/RoleBadge";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { StatCard } from "@/components/shared/StatCard";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +33,11 @@ import {
 } from "@/components/ui/select";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
-import { formatDate, formatXp, getInitials, debounce } from "@/utils";
+import { formatDate, formatXp, getInitials, debounce, formatNumber } from "@/utils";
 import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
+import { useQuery } from "@tanstack/react-query";
+import { dashboardApi } from "@/services/api";
+import { QUERY_KEYS } from "@/constants";
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
@@ -41,15 +47,20 @@ export default function UsersPage() {
   const [role, setRole] = useState<UserRole | "">("");
   const [gender, setGender] = useState<Gender | "">("");
   const [verified, setVerified] = useState<string>("");
+  const [banned, setBanned] = useState<string>("");
+  const [deleted, setDeleted] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: User; role: UserRole } | null>(null);
 
-  const debouncedSetSearch = useCallback(
-    debounce((v: string) => {
-      setDebouncedSearch(v);
-      setPage(1);
-    }, 300),
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((v: string) => {
+        setDebouncedSearch(v);
+        setPage(1);
+      }, 300),
     []
   );
 
@@ -65,6 +76,15 @@ export default function UsersPage() {
     verified: verified === "" ? undefined : verified === "true",
     sortBy,
     sortOrder: sortBy ? sortOrder : undefined,
+    banned: banned === "" ? undefined : banned === "true",
+    deleted: deleted === "" ? undefined : deleted === "true",
+    from: dateFrom || undefined,
+    to: dateTo || undefined,
+  });
+
+  const statsQuery = useQuery({
+    queryKey: QUERY_KEYS.dashboardStats,
+    queryFn: () => dashboardApi.getStatistics(),
   });
 
   const { banUser, updateRole } = useUserMutations();
@@ -164,6 +184,13 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageHeader title="Users" description="Manage platform users and permissions" />
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Total Users" value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))} icon={<Users className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.growthPercent ?? 0)} gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
+        <StatCard title="Verified" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedUsers ?? 0))} icon={<BadgeCheck className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedTrend ?? 0)} gradient="bg-gradient-to-br from-emerald-500 to-teal-600" />
+        <StatCard title="Banned" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.bannedUsers ?? 0))} icon={<Ban className="size-5" />} trend={0} gradient="bg-gradient-to-br from-rose-500 to-red-600" />
+        <StatCard title="Deleted" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.deletedUsers ?? 0))} icon={<Trash2 className="size-5" />} trend={0} gradient="bg-gradient-to-br from-slate-500 to-slate-700" />
+      </div>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <SearchBar
           value={search}
@@ -182,11 +209,15 @@ export default function UsersPage() {
           setRole("");
           setGender("");
           setVerified("");
+          setBanned("");
+          setDeleted("");
+          setDateFrom("");
+          setDateTo("");
           setPage(1);
         }}
       >
         <Select value={role || "all"} onValueChange={(v) => { setRole(v === "all" ? "" : v as UserRole); setPage(1); }}>
-          <SelectTrigger className="h-9 w-[130px] rounded-xl"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
             <SelectItem value="ADMIN">Admin</SelectItem>
@@ -195,7 +226,7 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={gender || "all"} onValueChange={(v) => { setGender(v === "all" ? "" : v as Gender); setPage(1); }}>
-          <SelectTrigger className="h-9 w-[130px] rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genders</SelectItem>
             {GENDER_OPTIONS.map((g) => (
@@ -204,13 +235,31 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="h-9 w-[130px] rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="true">Verified</SelectItem>
             <SelectItem value="false">Unverified</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Banned" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="true">Banned</SelectItem>
+            <SelectItem value="false">Active</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Deleted" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="true">Deleted</SelectItem>
+            <SelectItem value="false">Active</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="h-9 w-38 rounded-xl" />
+        <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="h-9 w-38 rounded-xl" />
       </FilterBar>
 
       <DataTable

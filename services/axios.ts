@@ -34,6 +34,7 @@ export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
   timeout: 30000,
+  withCredentials: true,
 });
 
 axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -52,9 +53,7 @@ axiosInstance.interceptors.response.use(
     };
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      const refreshToken = Cookies.get(TOKEN_KEYS.REFRESH);
-
-      if (!refreshToken) {
+      if (!Cookies.get(TOKEN_KEYS.ACCESS)) {
         clearTokens();
         redirectToLogin();
         return Promise.reject(error);
@@ -75,11 +74,12 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post<AuthTokens>(
+        const { data } = await axios.post<{ accessToken: string }>(
           `${API_BASE_URL}/auth/refresh`,
-          { refreshToken }
+          undefined,
+          { withCredentials: true }
         );
-        setTokens(data);
+        setTokens({ accessToken: data.accessToken });
         onTokenRefreshed(data.accessToken);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
@@ -96,11 +96,13 @@ axiosInstance.interceptors.response.use(
 
     const apiError: ApiError = {
       message:
+        error.response?.data?.error ??
         error.response?.data?.message ??
         error.message ??
         "An unexpected error occurred",
       statusCode: error.response?.status,
       errors: error.response?.data?.errors,
+      details: error.response?.data?.details,
     };
 
     return Promise.reject(apiError);
@@ -109,7 +111,9 @@ axiosInstance.interceptors.response.use(
 
 export function setTokens(tokens: AuthTokens): void {
   Cookies.set(TOKEN_KEYS.ACCESS, tokens.accessToken, { expires: 1 });
-  Cookies.set(TOKEN_KEYS.REFRESH, tokens.refreshToken, { expires: 7 });
+  if (tokens.refreshToken) {
+    Cookies.set(TOKEN_KEYS.REFRESH, tokens.refreshToken, { expires: 7 });
+  }
 }
 
 export function clearTokens(): void {

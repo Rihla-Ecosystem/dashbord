@@ -59,7 +59,7 @@ export function DataTable<TData>({
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[300px] items-center justify-center">
+      <div className="flex min-h-75 items-center justify-center">
         <LoadingSpinner label="Loading data..." />
       </div>
     );

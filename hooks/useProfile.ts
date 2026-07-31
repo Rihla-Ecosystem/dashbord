@@ -9,11 +9,9 @@ import { getErrorMessage } from "@/utils";
 import { useAuth } from "@/features/auth/auth-context";
 
 export function useProfile() {
-  const { refreshUser } = useAuth();
-
   return useQuery({
     queryKey: QUERY_KEYS.profile,
-    queryFn: () => usersApi.getMe().then((r) => r.data),
+    queryFn: () => usersApi.getMe(),
   });
 }
 
@@ -28,7 +26,7 @@ export function useProfileMutations() {
 
   const updateProfile = useMutation({
     mutationFn: (data: UpdateProfileRequest) =>
-      usersApi.updateMe(data).then((r) => r.data),
+      usersApi.updateMe(data),
     onSuccess: () => {
       toast.success("Profile updated");
       invalidate();
@@ -37,7 +35,7 @@ export function useProfileMutations() {
   });
 
   const uploadAvatar = useMutation({
-    mutationFn: (file: File) => usersApi.uploadAvatar(file).then((r) => r.data),
+    mutationFn: (file: File) => usersApi.uploadAvatar(file),
     onSuccess: () => {
       toast.success("Avatar uploaded");
       invalidate();
@@ -46,7 +44,7 @@ export function useProfileMutations() {
   });
 
   const deleteAvatar = useMutation({
-    mutationFn: () => usersApi.deleteAvatar().then((r) => r.data),
+    mutationFn: () => usersApi.deleteAvatar(),
     onSuccess: () => {
       toast.success("Avatar removed");
       invalidate();

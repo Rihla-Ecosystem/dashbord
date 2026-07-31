@@ -4,14 +4,14 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authApi, clearTokens, setTokens, usersApi } from "@/services/api";
 import type { LoginRequest, RegisterRequest, User, UserRole } from "@/types";
+import { QUERY_KEYS } from "@/constants";
 import { getErrorMessage, hasRole, isModeratorOrAbove } from "@/utils";
 import { toast } from "sonner";
 
@@ -31,33 +31,34 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const router = useRouter();
+
+  const { data: user = null, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.profile,
+    queryFn: () => usersApi.getMe(),
+    retry: false,
+  });
 
   const refreshUser = useCallback(async () => {
     try {
-      const { data } = await usersApi.getMe();
-      setUser(data);
+      const data = await queryClient.fetchQuery({
+        queryKey: QUERY_KEYS.profile,
+        queryFn: () => usersApi.getMe(),
+      });
+      queryClient.setQueryData(QUERY_KEYS.profile, data);
     } catch {
-      setUser(null);
+      queryClient.setQueryData(QUERY_KEYS.profile, null);
       clearTokens();
     }
-  }, []);
-
-  useEffect(() => {
-    refreshUser().finally(() => setIsLoading(false));
-  }, [refreshUser]);
+  }, [queryClient]);
 
   const login = useCallback(
     async (data: LoginRequest) => {
       try {
-        const { data: response } = await authApi.login(data);
-        setTokens({
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-        });
-        setUser(response.user);
+        const response = await authApi.login(data);
+        setTokens({ accessToken: response.accessToken, refreshToken: "" });
+        queryClient.setQueryData(QUERY_KEYS.profile, response.user);
         toast.success("Welcome back!");
         router.push("/dashboard");
       } catch (error) {
@@ -65,20 +66,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [router]
+    [queryClient, router]
   );
 
   const register = useCallback(
     async (data: RegisterRequest) => {
       try {
-        const { data: response } = await authApi.register(data);
-        setTokens({
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken,
-        });
-        setUser(response.user);
+        await authApi.register(data);
         toast.success("Account created successfully!");
-        router.push("/dashboard");
+        router.push("/login");
       } catch (error) {
         toast.error(getErrorMessage(error));
         throw error;
@@ -94,11 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore logout errors
     } finally {
       clearTokens();
-      setUser(null);
+      queryClient.setQueryData(QUERY_KEYS.profile, null);
       router.push("/login");
       toast.success("Logged out successfully");
     }
-  }, [router]);
+  }, [queryClient, router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
