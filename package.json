@@ -20,12 +20,13 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
     "flowbite": "^4.0.2",
     "flowbite-react": "^0.12.17",
     "framer-motion": "^12.43.0",
     "js-cookie": "^3.0.8",
     "lucide-react": "^0.542.0",
-    "next": "16.2.11",
+    "next": "^16.2.12",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -46,6 +47,7 @@
     "@types/react-dom": "^19.1.7",
     "eslint": "^9.34.0",
     "eslint-config-next": "16.2.11",
+    "prisma": "^7.9.1",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2"
   }

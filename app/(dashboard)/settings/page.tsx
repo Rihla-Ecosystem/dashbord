@@ -90,7 +90,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">Update your personal information</p>
             </div>
           </div>
-          <Button variant="outline" className="rounded-xl" render={<Link href="/profile" />}>
+          <Button variant="outline" className="rounded-xl" render={<Link href="/profile" />} nativeButton={false}>
             Manage
           </Button>
         </div>
