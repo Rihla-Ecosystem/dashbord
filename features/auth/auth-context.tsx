@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { authApi, clearTokens, setTokens, usersApi } from "@/services/api";
 import type { LoginRequest, RegisterRequest, User, UserRole } from "@/types";
 import { QUERY_KEYS } from "@/constants";
-import { getErrorMessage, hasRole, isModeratorOrAbove } from "@/utils";
+import { getErrorMessage, hasRole, isModeratorOrAbove, normalizeRoleName } from "@/utils";
 import { toast } from "sonner";
 
 interface AuthContextValue {
@@ -30,23 +30,27 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function withNormalizedRole(user: User): User {
+  return { ...user, role: normalizeRoleName(user.role) ?? user.role };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const router = useRouter();
 
   const { data: user = null, isLoading } = useQuery({
     queryKey: QUERY_KEYS.profile,
-    queryFn: () => usersApi.getMe(),
+    queryFn: async () => withNormalizedRole(await usersApi.getMe()),
     retry: false,
   });
 
   const refreshUser = useCallback(async () => {
     try {
-      const data = await queryClient.fetchQuery({
+      const userData = await queryClient.fetchQuery({
         queryKey: QUERY_KEYS.profile,
-        queryFn: () => usersApi.getMe(),
+        queryFn: async () => withNormalizedRole(await usersApi.getMe()),
       });
-      queryClient.setQueryData(QUERY_KEYS.profile, data);
+      queryClient.setQueryData(QUERY_KEYS.profile, userData);
     } catch {
       queryClient.setQueryData(QUERY_KEYS.profile, null);
       clearTokens();
@@ -58,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const response = await authApi.login(data);
         setTokens({ accessToken: response.accessToken, refreshToken: "" });
-        queryClient.setQueryData(QUERY_KEYS.profile, response.user);
+        queryClient.setQueryData(QUERY_KEYS.profile, withNormalizedRole(response.user));
         toast.success("Welcome back!");
         router.push("/dashboard");
       } catch (error) {

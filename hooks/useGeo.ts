@@ -8,7 +8,7 @@ import type { GeoPoiParams, GeoSearchParams } from "@/types";
 export function useGeoSearch(params: GeoSearchParams, enabled = true) {
   return useQuery({
     queryKey: QUERY_KEYS.geoSearch(params),
-    queryFn: () => geoApi.search(params).then((r) => r.data),
+    queryFn: () => geoApi.search(params),
     enabled: enabled && !!params.q,
   });
 }
@@ -16,7 +16,12 @@ export function useGeoSearch(params: GeoSearchParams, enabled = true) {
 export function useGeoPois(params: GeoPoiParams, enabled = true) {
   return useQuery({
     queryKey: QUERY_KEYS.geoPois(params),
-    queryFn: () => geoApi.getPois(params).then((r) => r.data),
+    queryFn: () => geoApi.getPois({
+      lat: params.lat,
+      lon: params.lng,
+      radius: params.radius,
+      categories: params.category,
+    }),
     enabled: enabled && !!params.lat && !!params.lng,
   });
 }

@@ -319,9 +319,15 @@ export interface ChartDataPoint {
   [key: string]: string | number;
 }
 
+export interface ApiErrorDetail {
+  path?: string | string[];
+  message?: string;
+}
+
 export interface ApiError {
   message: string;
   statusCode?: number;
   errors?: Record<string, string[]>;
-  details?: unknown[];
+  error?: string;
+  details?: ApiErrorDetail[];
 }

@@ -45,7 +45,11 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={theme ?? "system"} onValueChange={setTheme}>
+            <Select value={theme ?? "system"} onValueChange={(value) => {
+              if (value !== null) {
+                setTheme(value);
+              }
+            }}>
               <SelectTrigger className="w-32 rounded-xl">
                 <SelectValue />
               </SelectTrigger>

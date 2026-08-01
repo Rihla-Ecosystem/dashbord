@@ -79,7 +79,7 @@ axiosInstance.interceptors.response.use(
           undefined,
           { withCredentials: true }
         );
-        setTokens({ accessToken: data.accessToken });
+        setAccessToken(data.accessToken);
         onTokenRefreshed(data.accessToken);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
@@ -114,6 +114,10 @@ export function setTokens(tokens: AuthTokens): void {
   if (tokens.refreshToken) {
     Cookies.set(TOKEN_KEYS.REFRESH, tokens.refreshToken, { expires: 7 });
   }
+}
+
+export function setAccessToken(accessToken: string): void {
+  Cookies.set(TOKEN_KEYS.ACCESS, accessToken, { expires: 1 });
 }
 
 export function clearTokens(): void {

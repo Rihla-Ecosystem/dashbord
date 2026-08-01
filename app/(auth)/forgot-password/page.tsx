@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
             </Button>
           </form>
         ) : (
-          <Button render={<Link href="/login" />} className="w-full rounded-xl">
+          <Button nativeButton={false} render={<Link href="/login" />} className="w-full rounded-xl">
             Back to login
           </Button>
         )}

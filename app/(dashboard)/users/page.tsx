@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield } from "lucide-react";
-import { Users, BadgeCheck } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield, Coins, Users, BadgeCheck } from "lucide-react";
+import { useAuth } from "@/features/auth/auth-context";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { DataTable } from "@/components/shared/DataTable";
@@ -33,13 +33,22 @@ import {
 } from "@/components/ui/select";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
-import { formatDate, formatXp, getInitials, debounce, formatNumber } from "@/utils";
+import { formatDate, formatXp, getInitials, formatNumber } from "@/utils";
 import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/services/api";
 import { QUERY_KEYS } from "@/constants";
 
+function isUserRole(value: string): value is UserRole {
+  return value === "ADMIN" || value === "MODERATOR" || value === "USER";
+}
+
+function isGender(value: string): value is Gender {
+  return value === "MALE" || value === "FEMALE" || value === "OTHER" || value === "PREFER_NOT_TO_SAY";
+}
+
 export default function UsersPage() {
+  const { isAdmin } = useAuth();
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
@@ -55,14 +64,19 @@ export default function UsersPage() {
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: User; role: UserRole } | null>(null);
 
-  const debouncedSetSearch = useMemo(
-    () =>
-      debounce((v: string) => {
-        setDebouncedSearch(v);
-        setPage(1);
-      }, 300),
-    []
-  );
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearchChange = useCallback((value: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+      searchTimerRef.current = null;
+    }, 300);
+  }, []);
+
+  useEffect(() => () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  }, []);
 
   const sortBy = sorting[0]?.id;
   const sortOrder = sorting[0]?.desc ? "desc" : "asc";
@@ -155,6 +169,9 @@ export default function UsersPage() {
               <DropdownMenuItem render={<Link href={`/users/${row.original.id}?edit=true`} />}>
                 <Pencil className="size-4" /> Edit
               </DropdownMenuItem>
+              {isAdmin && <DropdownMenuItem render={<Link href={`/token-wallets/${row.original.id}`} />}>
+                <Coins className="size-4" /> Manage Tokens
+              </DropdownMenuItem>}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setRoleTarget({ user: row.original, role: "MODERATOR" })}>
                 <Shield className="size-4" /> Change Role
@@ -173,10 +190,10 @@ export default function UsersPage() {
         ),
       },
     ],
-    []
+    [isAdmin]
   );
 
-  const hasFilters = !!(role || gender || verified);
+  const hasFilters = !!(role || gender || verified || banned || deleted || dateFrom || dateTo);
 
   if (error) return <ErrorState onRetry={() => refetch()} />;
 
@@ -196,7 +213,7 @@ export default function UsersPage() {
           value={search}
           onChange={(v) => {
             setSearch(v);
-            debouncedSetSearch(v);
+            handleSearchChange(v);
           }}
           placeholder="Search by name or email..."
           className="flex-1"
@@ -216,7 +233,18 @@ export default function UsersPage() {
           setPage(1);
         }}
       >
-        <Select value={role || "all"} onValueChange={(v) => { setRole(v === "all" ? "" : v as UserRole); setPage(1); }}>
+        <Select value={role || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          if (value === "all") {
+            setRole("");
+          } else if (isUserRole(value)) {
+            setRole(value);
+          }
+          setPage(1);
+        }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
@@ -225,7 +253,18 @@ export default function UsersPage() {
             <SelectItem value="USER">User</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={gender || "all"} onValueChange={(v) => { setGender(v === "all" ? "" : v as Gender); setPage(1); }}>
+        <Select value={gender || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          if (value === "all") {
+            setGender("");
+          } else if (isGender(value)) {
+            setGender(value);
+          }
+          setPage(1);
+        }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genders</SelectItem>
@@ -234,7 +273,14 @@ export default function UsersPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={verified || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          setVerified(value === "all" ? "" : value);
+          setPage(1);
+        }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -242,7 +288,14 @@ export default function UsersPage() {
             <SelectItem value="false">Unverified</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={banned || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          setBanned(value === "all" ? "" : value);
+          setPage(1);
+        }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Banned" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -250,7 +303,14 @@ export default function UsersPage() {
             <SelectItem value="false">Active</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={deleted || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          setDeleted(value === "all" ? "" : value);
+          setPage(1);
+        }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Deleted" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>

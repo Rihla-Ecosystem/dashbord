@@ -84,7 +84,7 @@ export default function DashboardPage() {
     {
       console.log("Error fetching dashboard data:", error);
       return <ErrorState onRetry={() => refetch()} />;
-    } 
+    }
 
   const users = usersData?.data ?? [];
   const stats = statsQuery.data ?? {};
@@ -103,11 +103,11 @@ export default function DashboardPage() {
         title="Dashboard Overview"
         description="Live platform metrics, activity, and growth signals"
       >
-        <Button variant="outline" size="sm" render={<Link href="/analytics" />}>
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/analytics" />}>
           <TrendingUp className="size-4" />
           Analytics
         </Button>
-        <Button variant="outline" size="sm" render={<Link href="/users" />}>
+        <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/users" />}>
           <Users className="size-4" />
           Users
         </Button>

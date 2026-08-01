@@ -6,7 +6,6 @@ import { List, Clock } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { DataTable } from "@/components/shared/DataTable";
-import { FilterBar } from "@/components/shared/FilterBar";
 import { Pagination } from "@/components/shared/Pagination";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ActivityTimeline } from "@/features/dashboard/ActivityTimeline";
@@ -92,8 +91,6 @@ export default function AuditLogsPage() {
         onChange={setSearch}
         placeholder="Search logs..."
       />
-
-      <FilterBar />
 
       {view === "table" ? (
         <>

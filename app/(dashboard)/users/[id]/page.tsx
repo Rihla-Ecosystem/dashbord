@@ -119,12 +119,12 @@ export default function UserDetailsPage({ params }: PageProps) {
   if (isLoading) return <PageLoader />;
   if (error || !user) return <ErrorState onRetry={() => refetch()} />;
 
-  const badgeList = Array.isArray(badges) ? badges : (badges as { data?: unknown[] })?.data ?? [];
+  const badgeList = badges ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon-sm" render={<Link href="/users" />}>
+        <Button variant="ghost" size="icon-sm" nativeButton={false} render={<Link href="/users" />}>
           <ArrowLeft className="size-4" />
         </Button>
         <PageHeader title={user.name} description={user.email} />
@@ -228,7 +228,7 @@ export default function UserDetailsPage({ params }: PageProps) {
               <p className="text-sm text-muted-foreground">No badges earned yet</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                {(badgeList as Array<{ id: string; name: string; description?: string }>).map((badge) => (
+                {badgeList.map((badge) => (
                   <div key={badge.id} className="flex items-center gap-3 rounded-xl border border-border/50 p-3">
                     <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
                       🏅

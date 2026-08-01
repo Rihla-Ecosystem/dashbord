@@ -11,6 +11,9 @@ import {
   HiOutlineBadgeCheck,
   HiOutlineLocationMarker,
   HiOutlineCloud,
+  HiOutlineCash,
+  HiOutlineCube,
+  HiOutlineCreditCard,
   HiOutlineClipboardList,
   HiOutlineCog,
   HiOutlineLogout,
@@ -20,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { APP_NAME, NAV_ITEMS } from "@/constants";
 import { useAuth } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
-import type { UserRole } from "@/types";
 
 const iconMap: Record<string, React.ReactNode> = {
   dashboard: <HiOutlineViewGrid className="size-5" />,
@@ -30,6 +32,9 @@ const iconMap: Record<string, React.ReactNode> = {
   badges: <HiOutlineBadgeCheck className="size-5" />,
   geo: <HiOutlineLocationMarker className="size-5" />,
   environment: <HiOutlineCloud className="size-5" />,
+  payments: <HiOutlineCash className="size-5" />,
+  tokenPackages: <HiOutlineCube className="size-5" />,
+  tokenWallets: <HiOutlineCreditCard className="size-5" />,
   audit: <HiOutlineClipboardList className="size-5" />,
   settings: <HiOutlineCog className="size-5" />,
 };
@@ -47,7 +52,7 @@ export function Sidebar({ collapsed, onToggle, mobile, onNavigate }: SidebarProp
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.roles) return true;
-    return hasRole(item.roles as UserRole[]);
+    return hasRole(item.roles);
   });
 
   return (

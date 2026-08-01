@@ -39,7 +39,7 @@ function VerifyEmailContent() {
         {status === "success" && <CheckCircle className="size-16 text-emerald-500" />}
         {status === "error" && <XCircle className="size-16 text-destructive" />}
         {status !== "loading" && (
-          <Button render={<Link href="/login" />} className="rounded-xl">
+          <Button nativeButton={false} render={<Link href="/login" />} className="rounded-xl">
             Continue to login
           </Button>
         )}

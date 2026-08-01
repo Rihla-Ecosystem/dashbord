@@ -43,6 +43,25 @@ export function formatXp(xp: number): string {
   return String(xp);
 }
 
+function isUserRoleName(name: string): name is UserRole {
+  return name === "ADMIN" || name === "MODERATOR" || name === "USER";
+}
+
+export function normalizeRoleName(role: unknown): UserRole | undefined {
+  if (typeof role === "string") {
+    const upper = role.toUpperCase();
+    return isUserRoleName(upper) ? upper : undefined;
+  }
+  if (typeof role === "object" && role !== null && "name" in role) {
+    const name = role.name;
+    if (typeof name === "string") {
+      const upper = name.toUpperCase();
+      return isUserRoleName(upper) ? upper : undefined;
+    }
+  }
+  return undefined;
+}
+
 export function hasRole(
   userRole: UserRole | undefined,
   allowedRoles: UserRole[]
@@ -68,7 +87,7 @@ export function getErrorMessage(error: unknown): string {
   return "An unexpected error occurred";
 }
 
-export function buildQueryString(params: Record<string, unknown>): string {
+export function buildQueryString<T extends object>(params: T): string {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {

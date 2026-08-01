@@ -12,7 +12,7 @@ export default function ForbiddenPage() {
       <p className="max-w-md text-muted-foreground">
         You don&apos;t have permission to access this page. Contact an administrator if you believe this is an error.
       </p>
-      <Button render={<Link href="/dashboard" />} className="rounded-xl">
+      <Button nativeButton={false} render={<Link href="/dashboard" />} className="rounded-xl">
         Back to Dashboard
       </Button>
     </div>

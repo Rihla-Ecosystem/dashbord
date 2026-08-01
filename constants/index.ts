@@ -1,3 +1,5 @@
+import type { UserRole } from "@/types";
+
 export const APP_NAME = "Rihla Admin";
 export const APP_DESCRIPTION = "Enterprise admin dashboard for Rihla platform";
 
@@ -31,6 +33,8 @@ export const GENDER_OPTIONS = [
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+export const MAX_TOKEN_BALANCE = 2_147_483_647;
+
 export const SIDEBAR_WIDTH = 280;
 export const SIDEBAR_COLLAPSED_WIDTH = 72;
 
@@ -54,9 +58,25 @@ export const QUERY_KEYS = {
   environment: ["environment"] as const,
   geoSearch: (params?: unknown) => ["geo-search", params] as const,
   geoPois: (params?: unknown) => ["geo-pois", params] as const,
+  payments: (params?: unknown) => ["payments", params] as const,
+  payment: (id: string) => ["payment", id] as const,
+  tokenPackages: (params?: unknown) => ["token-packages", params] as const,
+  tokenPackage: (id: number) => ["token-package", id] as const,
+  adminTokenWallets: (params?: unknown) =>
+    ["admin-token-wallets", params] as const,
+  adminTokenWallet: (userId: string) => ["admin-token-wallet", userId] as const,
+  adminTokenTransactions: (userId: string, params?: unknown) =>
+    ["admin-token-transactions", userId, params] as const,
 } as const;
 
-export const NAV_ITEMS = [
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: string;
+  roles?: UserRole[];
+}
+
+export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/analytics", label: "Analytics", icon: "analytics" },
   { href: "/users", label: "Users", icon: "users", roles: ["ADMIN", "MODERATOR"] },
@@ -64,9 +84,12 @@ export const NAV_ITEMS = [
   { href: "/badges", label: "Badges", icon: "badges", roles: ["ADMIN", "MODERATOR"] },
   { href: "/geo", label: "Geo Services", icon: "geo" },
   { href: "/environment", label: "Environment", icon: "environment" },
+  { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
+  { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
+  { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" },
-] as const;
+];
 
 export const AUTH_ROUTES = [
   "/login",
@@ -84,6 +107,9 @@ export const PROTECTED_ROUTES = [
   "/badges",
   "/geo",
   "/environment",
+  "/payments",
+  "/token-packages",
+  "/token-wallets",
   "/audit-logs",
   "/settings",
   "/profile",

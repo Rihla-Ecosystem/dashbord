@@ -62,7 +62,7 @@ function ResetPasswordForm() {
       </CardHeader>
       <CardContent>
         {done ? (
-          <Button render={<Link href="/login" />} className="w-full rounded-xl">
+          <Button nativeButton={false} render={<Link href="/login" />} className="w-full rounded-xl">
             Sign in
           </Button>
         ) : (

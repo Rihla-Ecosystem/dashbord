@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import type { GeoPlace } from "@/types";
 
 export default function GeoPage() {
   const [query, setQuery] = useState("");
@@ -79,7 +80,13 @@ export default function GeoPage() {
           placeholder="Longitude"
           className="h-9 w-32 rounded-xl"
         />
-        <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : v)}>
+        <Select value={category || "all"} onValueChange={(value) => {
+          if (value === null) {
+            return;
+          }
+
+          setCategory(value === "all" ? "" : value);
+        }}>
           <SelectTrigger className="h-9 w-35 rounded-xl">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
@@ -136,7 +143,7 @@ export default function GeoPage() {
   );
 }
 
-function PoiCard({ place }: { place: { id: string; name: string; type: string; address?: string; distance?: number; rating?: number } }) {
+function PoiCard({ place }: { place: GeoPlace }) {
   return (
     <div className="group rounded-xl border border-border/50 p-4 transition-all hover:border-primary/30 hover:shadow-md">
       <div className="flex items-start gap-3">

@@ -44,7 +44,7 @@ function normalizeRole(value: unknown): UserRole {
   return "USER";
 }
 
-export function normalizeUser(apiUser: Partial<ApiUser> & Record<string, unknown>): User {
+export function normalizeUser(apiUser: Partial<ApiUser>): User {
   const roleValue = apiUser.role ?? apiUser.roleId;
 
   return {
@@ -67,7 +67,7 @@ export function normalizeUser(apiUser: Partial<ApiUser> & Record<string, unknown
     verified: Boolean(apiUser.isEmailVerified ?? apiUser.verified),
     banned: Boolean(apiUser.banned),
     createdAt: asString(apiUser.createdAt),
-    updatedAt: apiUser.updatedAt,
+    updatedAt: apiUser.updatedAt ?? undefined,
   };
 }
 
@@ -85,13 +85,12 @@ export function normalizePaginatedUsers(
   };
 }
 
-export function normalizeBadge(apiBadge: Partial<ApiBadge> & Record<string, unknown>): Badge {
+export function normalizeBadge(apiBadge: Partial<ApiBadge>): Badge {
   return {
     id: asString(apiBadge.id ?? apiBadge.criteriaValue ?? ""),
     name: asString(apiBadge.name),
     description: asString(apiBadge.description),
-    icon: (apiBadge.iconUrl ?? null) as string | null | undefined,
-    earnedAt: typeof apiBadge.earnedAt === "string" ? apiBadge.earnedAt : undefined,
+    icon: apiBadge.iconUrl ?? undefined,
   };
 }
 
@@ -107,7 +106,7 @@ export function normalizeBadgesResponse(response: unknown): Badge[] {
   return [];
 }
 
-export function normalizeAuditLog(apiLog: Partial<ApiAuditLog> & Record<string, unknown>): AuditLog {
+export function normalizeAuditLog(apiLog: Partial<ApiAuditLog>): AuditLog {
   return {
     id: asString(apiLog.id),
     action: asString(apiLog.action),
