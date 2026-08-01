@@ -11,10 +11,54 @@ import {
   normalizeUser,
 } from "./transformers";
 
+function extractSeriesByRange(data: unknown, range?: string): unknown {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  const record = data as Record<string, unknown>;
+  const aliases: Record<string, string[]> = {
+    daily: ["daily", "revenueByDay"],
+    weekly: ["weekly", "revenueByWeek"],
+    monthly: ["monthly", "revenueByMonth"],
+    yearly: ["yearly", "revenueByYear"],
+  };
+  const candidates = aliases[range ?? "monthly"] ?? aliases.monthly;
+  for (const key of candidates) {
+    if (Array.isArray(record[key])) return record[key];
+  }
+  for (const key of Object.keys(aliases)) {
+    for (const candidate of aliases[key]) {
+      if (Array.isArray(record[candidate])) return record[candidate];
+    }
+  }
+  return data;
+}
+
+function mapUserFilters(params: DashboardUserFilters): Record<string, unknown> {
+  const { sortBy, sortOrder, from, to, minXp, maxXp, ...rest } = params;
+  const mapped: Record<string, unknown> = { ...rest };
+  if (sortBy) mapped.sort = sortBy;
+  if (sortOrder) mapped.order = sortOrder;
+  if (from) mapped.createdFrom = from;
+  if (to) mapped.createdTo = to;
+  if (minXp !== undefined) mapped.minXP = minXp;
+  if (maxXp !== undefined) mapped.maxXP = maxXp;
+  return mapped;
+}
+
 export const dashboardApi = {
   getUsers: async (params?: DashboardUserFilters) => {
-    const { data } = await axiosInstance.get(`/dashboard/users${buildQueryString(params ?? {})}`);
-    return normalizePaginatedUsers(data as Record<string, unknown>);
+    const query = buildQueryString(mapUserFilters(params ?? {}));
+    const { data } = await axiosInstance.get(`/dashboard/users${query}`);
+    const envelope = (data ?? {}) as Record<string, unknown>;
+    const payload = (envelope.data ?? {}) as Record<string, unknown>;
+    const rows = Array.isArray(payload.users) ? (payload.users as unknown[]) : [];
+    const pagination = (payload.pagination ?? {}) as Record<string, unknown>;
+    return normalizePaginatedUsers({
+      data: rows,
+      total: typeof pagination.total === "number" ? pagination.total : rows.length,
+      page: typeof pagination.page === "number" ? pagination.page : 1,
+      limit: typeof pagination.limit === "number" ? pagination.limit : rows.length || 1,
+      totalPages: typeof pagination.totalPages === "number" ? pagination.totalPages : 1,
+    });
   },
 
   updateUserRole: async (id: string, roleId: number) => {
@@ -65,62 +109,102 @@ export const dashboardApi = {
 
   getUser: async (id: string) => {
     const { data } = await axiosInstance.get(`/dashboard/users/${id}`);
-    return normalizeUser(data as Record<string, unknown>);
+    const envelope = (data ?? {}) as { data?: unknown };
+    const record = (envelope.data ?? {}) as Record<string, unknown>;
+    const basic = (record.basicInformation ?? record) as Record<string, unknown>;
+    const roleRecord = (record.role ?? null) as { name?: string } | null;
+    return normalizeUser({
+      ...basic,
+      role: roleRecord?.name,
+      xp: record.xp,
+      level: record.level,
+      createdAt: basic.createdAt ?? record.createdAt,
+    });
   },
 
   getUserStatistics: async (id: string) => {
     const { data } = await axiosInstance.get(`/dashboard/users/${id}/statistics`);
-    return data as Record<string, unknown>;
+    const envelope = (data ?? {}) as { data?: unknown };
+    return (envelope.data ?? {}) as Record<string, unknown>;
   },
 
   getStatistics: async () => {
     const { data } = await axiosInstance.get(`/dashboard/users/statistics`);
-    return data as Record<string, unknown>;
+    const envelope = (data ?? {}) as { data?: unknown };
+    return (envelope.data ?? {}) as Record<string, unknown>;
   },
 
   getTopUsers: async () => {
     const { data } = await axiosInstance.get(`/dashboard/users/top`);
-    return data as Record<string, unknown>;
+    const envelope = (data ?? {}) as { data?: unknown };
+    return (envelope.data ?? {}) as Record<string, unknown>;
   },
 
   getRecentActivity: async (params?: { page?: number; limit?: number; search?: string }) => {
     const { data } = await axiosInstance.get(`/dashboard/users/recent-activity${buildQueryString(params ?? {})}`);
-    return normalizeAuditLogsResponse(data);
+    const envelope = (data ?? {}) as { data?: unknown };
+    return normalizeAuditLogsResponse(envelope.data);
   },
 
   getGrowth: async (params?: { range?: string }) => {
-    const { data } = await axiosInstance.get(`/dashboard/users/analytics/growth${buildQueryString(params ?? {})}`);
-    return normalizeSeriesResponse(data);
+    const { data } = await axiosInstance.get(`/dashboard/users/analytics/growth`);
+    const envelope = (data ?? {}) as { data?: unknown };
+    return normalizeSeriesResponse(extractSeriesByRange(envelope.data, params?.range));
   },
 
   getRevenue: async (params?: { range?: string }) => {
-    const { data } = await axiosInstance.get(`/dashboard/users/analytics/revenue${buildQueryString(params ?? {})}`);
-    return normalizeSeriesResponse(data);
+    const { data } = await axiosInstance.get(`/dashboard/users/analytics/revenue`);
+    const envelope = (data ?? {}) as { data?: unknown };
+    return normalizeSeriesResponse(extractSeriesByRange(envelope.data, params?.range));
   },
 
   getCountries: async () => {
     const { data } = await axiosInstance.get(`/dashboard/users/analytics/countries`);
-    return normalizeSeriesResponse(data);
+    const envelope = (data ?? {}) as { data?: unknown };
+    return normalizeSeriesResponse(envelope.data);
   },
 
   getLanguages: async () => {
     const { data } = await axiosInstance.get(`/dashboard/users/analytics/languages`);
-    return normalizeSeriesResponse(data);
+    const envelope = (data ?? {}) as { data?: unknown };
+    return normalizeSeriesResponse(envelope.data);
   },
 
   getRetention: async () => {
     const { data } = await axiosInstance.get(`/dashboard/users/analytics/retention`);
-    return data as Record<string, unknown>;
+    const envelope = (data ?? {}) as { data?: unknown };
+    return (envelope.data ?? {}) as Record<string, unknown>;
   },
 
   getAdminTimeline: async (params?: { page?: number; limit?: number }) => {
-    const { data } = await axiosInstance.get(`/dashboard/users/admin-timeline${buildQueryString(params ?? {})}`);
-    return normalizeAuditLogsResponse(data);
+    const { data } = await axiosInstance.get(`/dashboard/users/admin-timeline`);
+    const envelope = (data ?? {}) as { data?: unknown };
+    const grouped = (envelope.data ?? {}) as Record<string, unknown>;
+    const entries = Object.values(grouped)
+      .filter((value) => Array.isArray(value))
+      .flatMap((value) => value as unknown[])
+      .sort((a, b) => {
+        const ta = (a as Record<string, unknown>).createdAt;
+        const tb = (b as Record<string, unknown>).createdAt;
+        return typeof ta === "string" && typeof tb === "string" ? (ta < tb ? 1 : ta > tb ? -1 : 0) : 0;
+      });
+    const limit = params?.limit ?? (entries.length || 1);
+    const page = params?.page ?? 1;
+    const sliced = entries.slice((page - 1) * limit, page * limit);
+    return normalizeAuditLogsResponse({
+      data: sliced,
+      total: entries.length,
+      page,
+      limit,
+      totalPages: Math.ceil(entries.length / limit),
+    });
   },
 
   searchUsers: async (search: string) => {
     const { data } = await axiosInstance.get(`/dashboard/users/search${buildQueryString({ search })}`);
-    return normalizePaginatedUsers(data as Record<string, unknown>);
+    const envelope = (data ?? {}) as { data?: unknown };
+    const rows = Array.isArray(envelope.data) ? (envelope.data as unknown[]) : [];
+    return normalizePaginatedUsers({ data: rows, total: rows.length, page: 1, limit: rows.length || 1, totalPages: 1 });
   },
 
   exportUsers: async (params: { ids?: string[]; format?: "csv" | "excel" } = {}) => {

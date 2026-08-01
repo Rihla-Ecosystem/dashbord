@@ -118,42 +118,42 @@ export default function DashboardPage() {
           title="Total Users"
           value={formatNumber(Number((stats as Record<string, unknown>).totalUsers ?? usersData?.total ?? users.length))}
           icon={<Users className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).growthPercent ?? 0)}
+          trend={Number((stats as Record<string, unknown>).newUsersToday ?? 0)}
           gradient="bg-gradient-to-br from-violet-500 to-purple-600"
         />
         <StatCard
           title="New Users"
-          value={formatNumber(Number((stats as Record<string, unknown>).newUsers ?? growthQuery.data?.slice(-1)?.[0]?.value ?? 0))}
+          value={formatNumber(Number((stats as Record<string, unknown>).newUsersToday ?? growthQuery.data?.slice(-1)?.[0]?.value ?? 0))}
           icon={<Shield className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).newUsersTrend ?? 0)}
+          trend={Number((stats as Record<string, unknown>).newUsersThisWeek ?? 0)}
           gradient="bg-gradient-to-br from-blue-500 to-cyan-600"
         />
         <StatCard
           title="Revenue"
-          value={formatNumber(Number((stats as Record<string, unknown>).revenue ?? revenueSeries.reduce((sum, item) => sum + Number(item.value), 0) ?? 0))}
+          value={formatNumber(Number((stats as Record<string, unknown>).revenueToday ?? revenueSeries.reduce((sum, item) => sum + Number(item.value), 0) ?? 0))}
           icon={<UserCheck className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).revenueTrend ?? 0)}
+          trend={Number((stats as Record<string, unknown>).revenueThisWeek ?? 0)}
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
         />
         <StatCard
           title="Payments"
-          value={formatNumber(Number((stats as Record<string, unknown>).payments ?? 0))}
+          value={formatNumber(Number((stats as Record<string, unknown>).completedPayments ?? 0))}
           icon={<BadgeCheck className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).paymentsTrend ?? 0)}
+          trend={Number((stats as Record<string, unknown>).pendingPayments ?? 0)}
           gradient="bg-gradient-to-br from-amber-500 to-orange-600"
         />
         <StatCard
           title="Wallet Tokens"
-          value={formatNumber(Number((stats as Record<string, unknown>).walletTokens ?? 0))}
+          value={formatNumber(Number((stats as Record<string, unknown>).totalWalletTokens ?? 0))}
           icon={<Zap className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).walletTrend ?? 0)}
+          trend={Number((stats as Record<string, unknown>).averageWalletBalance ?? 0)}
           gradient="bg-gradient-to-br from-pink-500 to-rose-600"
         />
         <StatCard
           title="Verified Users"
           value={formatNumber(Number((stats as Record<string, unknown>).verifiedUsers ?? users.filter((u) => u.verified).length))}
           icon={<Activity className="size-5" />}
-          trend={Number((stats as Record<string, unknown>).verifiedTrend ?? 0)}
+          trend={Number((stats as Record<string, unknown>).activeUsers ?? 0)}
           gradient="bg-gradient-to-br from-brand to-brand-dark"
         />
       </div>

@@ -66,7 +66,7 @@ export function normalizeUser(apiUser: unknown): User {
     xp: asNumber(api.xp),
     level: asNumber(api.level, 1),
     verified: Boolean(api.isEmailVerified ?? api.verified),
-    banned: Boolean(api.banned),
+    banned: Boolean(api.isBanned ?? api.banned),
     createdAt: asString(api.createdAt),
     updatedAt: api.updatedAt as string | undefined,
   };
