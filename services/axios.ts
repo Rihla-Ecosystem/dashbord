@@ -4,7 +4,10 @@ import { API_BASE_URL, TOKEN_KEYS } from "@/constants";
 import type { ApiError, AuthTokens } from "@/types";
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{
+  resolve: (token: string) => void;
+  reject: (reason: unknown) => void;
+}> = [];
 
 // المسارات العامة اللي المستخدم مش محتاج يكون مسجل دخول عشان يشوفها
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -21,12 +24,17 @@ function redirectToLogin(): void {
   }
 }
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
-  refreshSubscribers.push(cb);
+function subscribeTokenRefresh(resolve: (token: string) => void, reject: (reason: unknown) => void) {
+  refreshSubscribers.push({ resolve, reject });
 }
 
 function onTokenRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers.forEach(({ resolve }) => resolve(token));
+  refreshSubscribers = [];
+}
+
+function onTokenRefreshFailed(error: unknown) {
+  refreshSubscribers.forEach(({ reject }) => reject(error));
   refreshSubscribers = [];
 }
 
@@ -60,13 +68,16 @@ axiosInstance.interceptors.response.use(
       }
 
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token: string) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            resolve(axiosInstance(originalRequest));
-          });
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh(
+            (token: string) => {
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
+              resolve(axiosInstance(originalRequest));
+            },
+            reject
+          );
         });
       }
 
@@ -86,6 +97,7 @@ axiosInstance.interceptors.response.use(
         }
         return axiosInstance(originalRequest);
       } catch (refreshError) {
+        onTokenRefreshFailed(refreshError);
         clearTokens();
         redirectToLogin();
         return Promise.reject(refreshError);
