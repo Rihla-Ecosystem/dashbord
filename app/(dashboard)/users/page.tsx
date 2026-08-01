@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield } from "lucide-react";
+import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield, Download, FileSpreadsheet, FileText } from "lucide-react";
 import { Users, BadgeCheck } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
@@ -39,6 +39,8 @@ import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/services/api";
 import { QUERY_KEYS } from "@/constants";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/utils";
 
 export default function UsersPage() {
   const searchParams = useSearchParams();
@@ -56,7 +58,9 @@ export default function UsersPage() {
   const [dateTo, setDateTo] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [banTarget, setBanTarget] = useState<User | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: User; role: UserRole } | null>(null);
+  const [exporting, setExporting] = useState<"csv" | "excel" | null>(null);
 
   const debouncedSetSearch = useMemo(
     () =>
@@ -98,7 +102,39 @@ export default function UsersPage() {
     queryFn: () => dashboardApi.getStatistics(),
   });
 
-  const { banUser, updateRole } = useUserMutations();
+  const { banUser, updateRole, deleteUser } = useUserMutations();
+
+  const handleExport = async (format: "csv" | "excel") => {
+    setExporting(format);
+    try {
+      const { blob, filename } = await dashboardApi.exportUsers(
+        {
+          search: debouncedSearch || undefined,
+          role: role || undefined,
+          gender: gender || undefined,
+          verified: verified === "" ? undefined : verified === "true",
+          banned: banned === "" ? undefined : banned === "true",
+          deleted: deleted === "" ? undefined : deleted === "true",
+          from: dateFrom || undefined,
+          to: dateTo || undefined,
+          sortBy,
+          sortOrder: sortBy ? sortOrder : undefined,
+        },
+        format
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${format === "excel" ? "Excel" : "CSV"} file`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -176,7 +212,10 @@ export default function UsersPage() {
               >
                 <Ban className="size-4" /> {row.original.banned ? "Unban" : "Ban"}
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive">
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
                 <Trash2 className="size-4" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -193,7 +232,34 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" description="Manage platform users and permissions" />
+      <PageHeader title="Users" description="Manage platform users and permissions">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" className="rounded-xl" disabled={!!exporting}>
+                {exporting ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Exporting...
+                  </span>
+                ) : (
+                  <>
+                    <Download className="size-4" /> Export
+                  </>
+                )}
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" className="rounded-xl">
+            <DropdownMenuItem onClick={() => handleExport("csv")}>
+              <FileText className="size-4" /> Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport("excel")}>
+              <FileSpreadsheet className="size-4" /> Export as Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Users" value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))} icon={<Users className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.newUsersToday ?? 0)} trendLabel="new today" gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
@@ -324,6 +390,23 @@ export default function UsersPage() {
               { id: roleTarget.user.id, role: roleTarget.role },
               { onSuccess: () => setRoleTarget(null) }
             );
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+        title="Delete User"
+        description={`Permanently delete ${deleteTarget?.name}? This action cannot be undone.`}
+        variant="destructive"
+        confirmLabel="Delete User"
+        isLoading={deleteUser.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteUser.mutate(deleteTarget.id, {
+              onSuccess: () => setDeleteTarget(null),
+            });
           }
         }}
       />

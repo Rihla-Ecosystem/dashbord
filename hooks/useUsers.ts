@@ -46,5 +46,14 @@ export function useUserMutations() {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
-  return { updateRole, banUser };
+  const deleteUser = useMutation({
+    mutationFn: (id: string) => dashboardApi.deleteUser(id),
+    onSuccess: () => {
+      toast.success("User deleted");
+      invalidateUsers();
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  return { updateRole, banUser, deleteUser };
 }

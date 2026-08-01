@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { ArrowLeft, MapPin, Globe, Calendar, Zap, Shield, Trash2, RotateCcw, Ban, BadgeCheck, Power, ZapOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SkeletonCard, Skeleton } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { RoleBadge, StatusBadge } from "@/components/shared/RoleBadge";
 import { DashboardCard } from "@/components/shared/DashboardCard";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser, useUserBadges } from "@/hooks/useUser";
@@ -27,6 +29,7 @@ interface PageProps {
 
 export default function UserDetailsPage({ params }: PageProps) {
   const { id } = use(params);
+  const [confirmAction, setConfirmAction] = useState<"delete" | "ban" | "unban" | null>(null);
   const { data: user, isLoading, error, refetch } = useUser(id);
   const { data: badges } = useUserBadges(id);
   const statsQuery = useQuery({
@@ -167,11 +170,11 @@ export default function UserDetailsPage({ params }: PageProps) {
               <Button variant="outline" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><BadgeCheck className="size-4" /> Verify Email</Button>
               <Button variant="outline" onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}><Power className="size-4" /> Activate</Button>
               <Button variant="outline" onClick={() => deactivateMutation.mutate()} disabled={deactivateMutation.isPending}><Ban className="size-4" /> Deactivate</Button>
-              <Button variant="outline" onClick={() => banMutation.mutate(!user.banned)} disabled={banMutation.isPending}><Shield className="size-4" /> {user.banned ? "Unban" : "Ban"}</Button>
+              <Button variant="outline" onClick={() => setConfirmAction(user.banned ? "unban" : "ban")} disabled={banMutation.isPending}><Shield className="size-4" /> {user.banned ? "Unban" : "Ban"}</Button>
               <Button variant="outline" onClick={() => resetXpMutation.mutate()} disabled={resetXpMutation.isPending}><ZapOff className="size-4" /> Reset XP</Button>
               <Button variant="outline" onClick={() => resetWalletMutation.mutate()} disabled={resetWalletMutation.isPending}><RotateCcw className="size-4" /> Reset Wallet</Button>
               <Button variant="outline" onClick={() => restoreMutation.mutate()} disabled={restoreMutation.isPending}><RotateCcw className="size-4" /> Restore</Button>
-              <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}><Trash2 className="size-4" /> Delete</Button>
+              <Button variant="destructive" onClick={() => setConfirmAction("delete")} disabled={deleteMutation.isPending}><Trash2 className="size-4" /> Delete</Button>
             </div>
           </DashboardCard>
 
@@ -255,6 +258,36 @@ export default function UserDetailsPage({ params }: PageProps) {
           </DashboardCard>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmAction === "delete"}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title="Delete User"
+        description={`Permanently delete ${user.name}? This action cannot be undone.`}
+        variant="destructive"
+        confirmLabel="Delete User"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => {
+          deleteMutation.mutate(undefined, {
+            onSuccess: () => setConfirmAction(null),
+          });
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmAction === "ban" || confirmAction === "unban"}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction === "unban" ? "Unban User" : "Ban User"}
+        description={`Are you sure you want to ${confirmAction === "unban" ? "unban" : "ban"} ${user.name}?`}
+        variant="destructive"
+        confirmLabel={confirmAction === "unban" ? "Unban" : "Ban"}
+        isLoading={banMutation.isPending}
+        onConfirm={() => {
+          banMutation.mutate(confirmAction === "unban" ? false : true, {
+            onSuccess: () => setConfirmAction(null),
+          });
+        }}
+      />
     </div>
   );
 }
