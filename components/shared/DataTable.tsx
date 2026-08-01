@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./EmptyState";
-import { LoadingSpinner } from "./LoadingSpinner";
+import { Skeleton } from "./LoadingSpinner";
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, unknown>[];
@@ -59,8 +59,19 @@ export function DataTable<TData>({
 
   if (isLoading) {
     return (
-      <div className="flex min-h-75 items-center justify-center">
-        <LoadingSpinner label="Loading data..." />
+      <div className="space-y-2 rounded-2xl border border-border/50 p-4" aria-hidden>
+        <div className="flex gap-4 border-b border-border/50 pb-3">
+          {Array.from({ length: Math.min(columns.length, 5) }).map((_, i) => (
+            <Skeleton key={i} className="h-3 flex-1" />
+          ))}
+        </div>
+        {Array.from({ length: 6 }).map((_, r) => (
+          <div key={r} className="flex gap-4 py-1.5">
+            {Array.from({ length: Math.min(columns.length, 5) }).map((_, i) => (
+              <Skeleton key={i} className="h-5 flex-1" />
+            ))}
+          </div>
+        ))}
       </div>
     );
   }

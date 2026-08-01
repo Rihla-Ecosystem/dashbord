@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
@@ -9,6 +9,7 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   trend?: number;
+  trendLabel?: string;
   gradient: string;
   className?: string;
 }
@@ -18,10 +19,13 @@ export function StatCard({
   value,
   icon,
   trend,
+  trendLabel,
   gradient,
   className,
 }: StatCardProps) {
-  const isPositive = trend !== undefined && trend >= 0;
+  const hasTrend = trend !== undefined && trend !== null;
+  const isPositive = hasTrend && trend >= 0;
+  const isZero = hasTrend && trend === 0;
 
   return (
     <motion.div
@@ -43,19 +47,25 @@ export function StatCard({
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
           <p className="text-3xl font-bold tracking-tight">{value}</p>
-          {trend !== undefined && (
+          {hasTrend && (
             <div
               className={cn(
                 "flex items-center gap-1 text-xs font-medium",
-                isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
+                isZero
+                  ? "text-muted-foreground"
+                  : isPositive
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-500"
               )}
             >
-              {isPositive ? (
+              {isZero ? (
+                <Minus className="size-3.5" />
+              ) : isPositive ? (
                 <TrendingUp className="size-3.5" />
               ) : (
                 <TrendingDown className="size-3.5" />
               )}
-              <span>{Math.abs(trend)}% vs last month</span>
+              <span>{trendLabel ?? `${Math.abs(trend)}`}</span>
             </div>
           )}
         </div>

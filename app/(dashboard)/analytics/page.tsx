@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { ChartCard } from "@/components/shared/ChartCard";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonGrid } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,7 +42,7 @@ export default function AnalyticsPage() {
   const loading = growthQuery.isLoading || revenueQuery.isLoading || countriesQuery.isLoading || languagesQuery.isLoading || retentionQuery.isLoading;
   const error = growthQuery.error || revenueQuery.error || countriesQuery.error || languagesQuery.error || retentionQuery.error;
 
-  if (loading) return <PageLoader />;
+  if (loading) return <SkeletonGrid cards={4} className="pt-2" />;
   if (error) return <ErrorState onRetry={() => window.location.reload()} />;
 
   const growth = growthQuery.data ?? [];

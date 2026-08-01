@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { useUsers } from "@/hooks/useUsers";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonCard } from "@/components/shared/LoadingSpinner";
 
 const ROLES = [
   {
@@ -31,7 +31,18 @@ const ROLES = [
 export default function RolesPage() {
   const { data, isLoading } = useUsers({ limit: 100 });
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Roles" description="Role definitions and permissions overview" />
+        <div className="grid gap-6 md:grid-cols-3">
+          <SkeletonCard className="h-64" />
+          <SkeletonCard className="h-64" />
+          <SkeletonCard className="h-64" />
+        </div>
+      </div>
+    );
+  }
 
   const users = data?.data ?? [];
   const counts = {

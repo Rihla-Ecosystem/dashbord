@@ -29,7 +29,51 @@ export function PageLoader() {
 }
 
 export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn("animate-pulse rounded-lg bg-muted", className)} />;
+}
+
+export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
-    <div className={cn("animate-pulse rounded-lg bg-muted", className)} />
+    <div className="space-y-3" aria-hidden>
+      <div className="flex gap-3">
+        {Array.from({ length: columns }).map((_, i) => (
+          <Skeleton key={`h-${i}`} className="h-4 flex-1" />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, r) => (
+        <div key={r} className="flex gap-3">
+          {Array.from({ length: columns }).map((_, i) => (
+            <Skeleton key={`${r}-${i}`} className="h-10 flex-1" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonGrid({ cards = 6, className }: { cards?: number; className?: string }) {
+  return (
+    <div className={cn("grid gap-4 sm:grid-cols-2 lg:grid-cols-3", className)} aria-hidden>
+      {Array.from({ length: cards }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-border/50 bg-card p-5">
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-16" />
+            </div>
+            <Skeleton className="size-12 rounded-xl" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonCard({ className }: { className?: string }) {
+  return (
+    <div className={cn("rounded-2xl border border-border/50 bg-card p-5", className)} aria-hidden>
+      <Skeleton className="mb-3 h-4 w-32" />
+      <Skeleton className="h-48 w-full" />
+    </div>
   );
 }
