@@ -31,14 +31,9 @@ export const GENDER_OPTIONS = [
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-export const SIDEBAR_WIDTH = 280;
-export const SIDEBAR_COLLAPSED_WIDTH = 72;
-
 export const QUERY_KEYS = {
   profile: ["profile"] as const,
-  users: (params?: unknown) => ["users", params] as const,
   dashboardUsers: (params?: unknown) => ["dashboard-users", params] as const,
-  user: (id: string) => ["user", id] as const,
   dashboardUser: (id: string) => ["dashboard-user", id] as const,
   dashboardUserStats: (id: string) => ["dashboard-user-stats", id] as const,
   userBadges: (id: string) => ["user-badges", id] as const,

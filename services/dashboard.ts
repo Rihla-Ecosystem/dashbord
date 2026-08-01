@@ -209,13 +209,6 @@ export const dashboardApi = {
     });
   },
 
-  searchUsers: async (search: string) => {
-    const { data } = await axiosInstance.get(`/dashboard/users/search${buildQueryString({ search })}`);
-    const envelope = (data ?? {}) as { data?: unknown };
-    const rows = Array.isArray(envelope.data) ? (envelope.data as unknown[]) : [];
-    return normalizePaginatedUsers({ data: rows, total: rows.length, page: 1, limit: rows.length || 1, totalPages: 1 });
-  },
-
   exportUsers: async (
     params: DashboardUserFilters = {},
     format: "csv" | "excel" = "csv"
