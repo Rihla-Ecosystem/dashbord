@@ -11,4 +11,5 @@ export const geoZoneSchema = z.object({
   }),
 });
 
-export type GeoZoneFormValues = z.infer<typeof geoZoneSchema>;
+export type GeoZoneFormValues = z.input<typeof geoZoneSchema>;
+export type GeoZonePayload = z.output<typeof geoZoneSchema>;
