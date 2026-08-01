@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { dashboardApi } from "@/services/api";
+import { adminApi } from "@/services/api";
 import { QUERY_KEYS, DEFAULT_PAGE_SIZE } from "@/constants";
 import type { AuditLogsQueryParams } from "@/types";
 
@@ -14,6 +14,6 @@ export function useAuditLogs(params?: AuditLogsQueryParams) {
 
   return useQuery({
     queryKey: QUERY_KEYS.auditLogs(queryParams),
-    queryFn: () => dashboardApi.getRecentActivity(queryParams),
+    queryFn: () => adminApi.getAuditLogs(queryParams),
   });
 }

@@ -55,7 +55,6 @@ export function normalizeUser(apiUser: Partial<ApiUser>): User {
     name: asString(api.displayName ?? api.name, asString(api.email)),
     avatar: (api.avatarUrl ?? api.avatar ?? null) as string | null | undefined,
     role: normalizeRole(roleValue),
-
     bio: (apiUser.bio ?? null) as string | null | undefined,
     nationality: (apiUser.nationality ?? null) as string | null | undefined,
     languages: asStringArray(apiUser.language ?? apiUser.languages),
@@ -71,6 +70,7 @@ export function normalizeUser(apiUser: Partial<ApiUser>): User {
     banned: Boolean(apiUser.banned),
     createdAt: asString(apiUser.createdAt),
     updatedAt: apiUser.updatedAt ?? undefined,
+
 
   };
 }
