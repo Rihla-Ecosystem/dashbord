@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { List, Clock } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -12,7 +12,7 @@ import { ActivityTimeline } from "@/features/dashboard/ActivityTimeline";
 import { Button } from "@/components/ui/button";
 import { useAuditLogs } from "@/hooks/useAuditLogs";
 import type { AuditLog } from "@/types";
-import { formatDateTime } from "@/utils";
+import { formatDateTime, debounce } from "@/utils";
 import { DEFAULT_PAGE_SIZE } from "@/constants";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +20,22 @@ export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<"table" | "timeline">("table");
+
+  const debouncedSetSearch = useMemo(
+    () =>
+      debounce((v: string) => {
+        setDebouncedSearch(v);
+        setPage(1);
+      }, 300),
+    []
+  );
 
   const { data, isLoading, error, refetch } = useAuditLogs({
     page,
     limit,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
   });
 
   const columns: ColumnDef<AuditLog>[] = [
@@ -96,7 +106,10 @@ export default function AuditLogsPage() {
       <FilterBar>
         <SearchBar
           value={search}
-          onChange={setSearch}
+          onChange={(v) => {
+            setSearch(v);
+            debouncedSetSearch(v);
+          }}
           placeholder="Search logs..."
         />
       </FilterBar>

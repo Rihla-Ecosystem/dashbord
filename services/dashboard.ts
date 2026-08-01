@@ -140,10 +140,19 @@ export const dashboardApi = {
     return (envelope.data ?? {}) as Record<string, unknown>;
   },
 
-  getRecentActivity: async (params?: { page?: number; limit?: number; search?: string }) => {
-    const { data } = await axiosInstance.get(`/dashboard/users/recent-activity${buildQueryString(params ?? {})}`);
+  getRecentBadgeUnlocks: async () => {
+    const { data } = await axiosInstance.get(`/dashboard/users/recent-activity`);
     const envelope = (data ?? {}) as { data?: unknown };
-    return normalizeAuditLogsResponse(envelope.data);
+    const activity = (envelope.data ?? {}) as Record<string, unknown>;
+    const unlocks = Array.isArray(activity.recentBadgeUnlocks)
+      ? (activity.recentBadgeUnlocks as Array<Record<string, unknown>>)
+      : [];
+    return unlocks.map((unlock) => ({
+      id: unlock.id,
+      awardedAt: unlock.awardedAt,
+      user: (unlock.user ?? {}) as Record<string, unknown>,
+      badge: normalizeBadge(((unlock.badge ?? {}) as Record<string, unknown>)),
+    }));
   },
 
   getGrowth: async (params?: { range?: string }) => {

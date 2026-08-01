@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield, Coins, Users, BadgeCheck } from "lucide-react";
 import { useAuth } from "@/features/auth/auth-context";
@@ -48,11 +49,16 @@ function isGender(value: string): value is Gender {
 }
 
 export default function UsersPage() {
+
   const { isAdmin } = useAuth();
+
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("search") ?? "";
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch);
   const [role, setRole] = useState<UserRole | "">("");
   const [gender, setGender] = useState<Gender | "">("");
   const [verified, setVerified] = useState<string>("");
@@ -63,6 +69,7 @@ export default function UsersPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [banTarget, setBanTarget] = useState<User | null>(null);
   const [roleTarget, setRoleTarget] = useState<{ user: User; role: UserRole } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = useCallback((value: string) => {
@@ -77,6 +84,14 @@ export default function UsersPage() {
   useEffect(() => () => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
   }, []);
+
+  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
+  if (prevUrlSearch !== urlSearch) {
+    setPrevUrlSearch(urlSearch);
+    setSearch(urlSearch);
+    setDebouncedSearch(urlSearch);
+    setPage(1);
+  }
 
   const sortBy = sorting[0]?.id;
   const sortOrder = sorting[0]?.desc ? "desc" : "asc";
@@ -101,7 +116,7 @@ export default function UsersPage() {
     queryFn: () => dashboardApi.getStatistics(),
   });
 
-  const { banUser, updateRole } = useUserMutations();
+  const { banUser, updateRole, deleteUser } = useUserMutations();
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -169,9 +184,11 @@ export default function UsersPage() {
               <DropdownMenuItem render={<Link href={`/users/${row.original.id}?edit=true`} />}>
                 <Pencil className="size-4" /> Edit
               </DropdownMenuItem>
-              {isAdmin && <DropdownMenuItem render={<Link href={`/token-wallets/${row.original.id}`} />}>
-                <Coins className="size-4" /> Manage Tokens
-              </DropdownMenuItem>}
+              {isAdmin && (
+                <DropdownMenuItem render={<Link href={`/token-wallets/${row.original.id}`} />}>
+                  <Coins className="size-4" /> Manage Tokens
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setRoleTarget({ user: row.original, role: "MODERATOR" })}>
                 <Shield className="size-4" /> Change Role
@@ -182,7 +199,10 @@ export default function UsersPage() {
               >
                 <Ban className="size-4" /> {row.original.banned ? "Unban" : "Ban"}
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive">
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
                 <Trash2 className="size-4" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -202,10 +222,36 @@ export default function UsersPage() {
       <PageHeader title="Users" description="Manage platform users and permissions" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Users" value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))} icon={<Users className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.newUsersToday ?? 0)} trendLabel="new today" gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
-        <StatCard title="Verified" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedUsers ?? 0))} icon={<BadgeCheck className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.unverifiedUsers ?? 0)} trendLabel="unverified" gradient="bg-gradient-to-br from-emerald-500 to-teal-600" />
-        <StatCard title="Banned" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.bannedUsers ?? 0))} icon={<Ban className="size-5" />} trend={0} gradient="bg-gradient-to-br from-rose-500 to-red-600" />
-        <StatCard title="Deleted" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.deletedUsers ?? 0))} icon={<Trash2 className="size-5" />} trend={0} gradient="bg-gradient-to-br from-slate-500 to-slate-700" />
+        <StatCard
+          title="Total Users"
+          value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))}
+          icon={<Users className="size-5" />}
+          trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.newUsersToday ?? 0)}
+          trendLabel="new today"
+          gradient="bg-gradient-to-br from-violet-500 to-purple-600"
+        />
+        <StatCard
+          title="Verified"
+          value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedUsers ?? 0))}
+          icon={<BadgeCheck className="size-5" />}
+          trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.unverifiedUsers ?? 0)}
+          trendLabel="unverified"
+          gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+        />
+        <StatCard
+          title="Banned"
+          value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.bannedUsers ?? 0))}
+          icon={<Ban className="size-5" />}
+          trend={0}
+          gradient="bg-gradient-to-br from-rose-500 to-red-600"
+        />
+        <StatCard
+          title="Deleted"
+          value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.deletedUsers ?? 0))}
+          icon={<Trash2 className="size-5" />}
+          trend={0}
+          gradient="bg-gradient-to-br from-slate-500 to-slate-700"
+        />
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -233,18 +279,18 @@ export default function UsersPage() {
           setPage(1);
         }}
       >
-        <Select value={role || "all"} onValueChange={(value) => {
-          if (value === null) {
-            return;
-          }
-
-          if (value === "all") {
-            setRole("");
-          } else if (isUserRole(value)) {
-            setRole(value);
-          }
-          setPage(1);
-        }}>
+        <Select
+          value={role || "all"}
+          onValueChange={(value) => {
+            if (value === null) return;
+            if (value === "all") {
+              setRole("");
+            } else if (isUserRole(value)) {
+              setRole(value);
+            }
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
@@ -253,22 +299,19 @@ export default function UsersPage() {
             <SelectItem value="USER">User</SelectItem>
           </SelectContent>
         </Select>
-<<<<<<< HEAD
-        <Select value={gender || "all"} onValueChange={(value) => {
-          if (value === null) {
-            return;
-          }
 
-          if (value === "all") {
-            setGender("");
-          } else if (isGender(value)) {
-            setGender(value);
-          }
-          setPage(1);
-        }}>
-=======
-        <Select value={gender || "all"} onValueChange={(v) => { setGender((v ?? "") === "all" ? "" : (v as Gender)); setPage(1); }}>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+        <Select
+          value={gender || "all"}
+          onValueChange={(value) => {
+            if (value === null) return;
+            if (value === "all") {
+              setGender("");
+            } else if (isGender(value)) {
+              setGender(value);
+            }
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genders</SelectItem>
@@ -277,18 +320,15 @@ export default function UsersPage() {
             ))}
           </SelectContent>
         </Select>
-<<<<<<< HEAD
-        <Select value={verified || "all"} onValueChange={(value) => {
-          if (value === null) {
-            return;
-          }
 
-          setVerified(value === "all" ? "" : value);
-          setPage(1);
-        }}>
-=======
-        <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : (v ?? "")); setPage(1); }}>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+        <Select
+          value={verified || "all"}
+          onValueChange={(value) => {
+            if (value === null) return;
+            setVerified(value === "all" ? "" : value);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -296,18 +336,15 @@ export default function UsersPage() {
             <SelectItem value="false">Unverified</SelectItem>
           </SelectContent>
         </Select>
-<<<<<<< HEAD
-        <Select value={banned || "all"} onValueChange={(value) => {
-          if (value === null) {
-            return;
-          }
 
-          setBanned(value === "all" ? "" : value);
-          setPage(1);
-        }}>
-=======
-        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : (v ?? "")); setPage(1); }}>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+        <Select
+          value={banned || "all"}
+          onValueChange={(value) => {
+            if (value === null) return;
+            setBanned(value === "all" ? "" : value);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Banned" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -315,18 +352,15 @@ export default function UsersPage() {
             <SelectItem value="false">Active</SelectItem>
           </SelectContent>
         </Select>
-<<<<<<< HEAD
-        <Select value={deleted || "all"} onValueChange={(value) => {
-          if (value === null) {
-            return;
-          }
 
-          setDeleted(value === "all" ? "" : value);
-          setPage(1);
-        }}>
-=======
-        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : (v ?? "")); setPage(1); }}>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+        <Select
+          value={deleted || "all"}
+          onValueChange={(value) => {
+            if (value === null) return;
+            setDeleted(value === "all" ? "" : value);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Deleted" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -334,6 +368,7 @@ export default function UsersPage() {
             <SelectItem value="false">Active</SelectItem>
           </SelectContent>
         </Select>
+
         <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} className="h-9 w-38 rounded-xl" />
         <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} className="h-9 w-38 rounded-xl" />
       </FilterBar>
@@ -388,6 +423,24 @@ export default function UsersPage() {
             updateRole.mutate(
               { id: roleTarget.user.id, role: roleTarget.role },
               { onSuccess: () => setRoleTarget(null) }
+            );
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(null)}
+        title="Delete User"
+        description={`Are you sure you want to delete ${deleteTarget?.name}? This action cannot be undone.`}
+        variant="destructive"
+        confirmLabel="Delete"
+        isLoading={deleteUser?.isPending}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteUser?.mutate(
+              { id: deleteTarget.id },
+              { onSuccess: () => setDeleteTarget(null) }
             );
           }
         }}
