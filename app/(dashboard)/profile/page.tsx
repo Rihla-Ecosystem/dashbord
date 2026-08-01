@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonCard } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { DashboardCard } from "@/components/shared/DashboardCard";
@@ -48,7 +48,14 @@ export default function ProfilePage() {
       : undefined,
   });
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading)
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <PageHeader title="Profile" description="Manage your personal information" />
+        <SkeletonCard className="h-40" />
+        <SkeletonCard className="h-96" />
+      </div>
+    );
   if (error || !profile) return <ErrorState onRetry={() => refetch()} />;
 
   const onSubmit = (data: ProfileForm) => {

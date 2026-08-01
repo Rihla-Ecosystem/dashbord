@@ -202,8 +202,8 @@ export default function UsersPage() {
       <PageHeader title="Users" description="Manage platform users and permissions" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Total Users" value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))} icon={<Users className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.newUsersToday ?? 0)} gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
-        <StatCard title="Verified" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedUsers ?? 0))} icon={<BadgeCheck className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.unverifiedUsers ?? 0)} gradient="bg-gradient-to-br from-emerald-500 to-teal-600" />
+        <StatCard title="Total Users" value={formatXp(Number((statsQuery.data as Record<string, unknown> | undefined)?.totalUsers ?? data?.total ?? 0))} icon={<Users className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.newUsersToday ?? 0)} trendLabel="new today" gradient="bg-gradient-to-br from-violet-500 to-purple-600" />
+        <StatCard title="Verified" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.verifiedUsers ?? 0))} icon={<BadgeCheck className="size-5" />} trend={Number((statsQuery.data as Record<string, unknown> | undefined)?.unverifiedUsers ?? 0)} trendLabel="unverified" gradient="bg-gradient-to-br from-emerald-500 to-teal-600" />
         <StatCard title="Banned" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.bannedUsers ?? 0))} icon={<Ban className="size-5" />} trend={0} gradient="bg-gradient-to-br from-rose-500 to-red-600" />
         <StatCard title="Deleted" value={formatNumber(Number((statsQuery.data as Record<string, unknown> | undefined)?.deletedUsers ?? 0))} icon={<Trash2 className="size-5" />} trend={0} gradient="bg-gradient-to-br from-slate-500 to-slate-700" />
       </div>

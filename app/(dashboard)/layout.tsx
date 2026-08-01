@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Footer } from "@/components/layout/Footer";
 import { AuthProvider } from "@/features/auth/auth-context";
 import { PageLoader } from "@/components/shared/LoadingSpinner";
@@ -46,6 +47,9 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           sidebarCollapsed={sidebarCollapsed}
           onSidebarToggle={() => setSidebarCollapsed((c) => !c)}
         />
+        <div className="px-4 pt-4 md:hidden">
+          <Breadcrumbs />
+        </div>
         <main className="flex-1 space-y-6 p-4 pb-24 sm:p-6 lg:pb-6">{children}</main>
         <Footer />
       </div>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, MapPin, Globe, Calendar, Zap, Shield, Trash2, RotateCcw, Ban, BadgeCheck, Power, ZapOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonCard, Skeleton } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { RoleBadge, StatusBadge } from "@/components/shared/RoleBadge";
 import { DashboardCard } from "@/components/shared/DashboardCard";
@@ -116,7 +116,16 @@ export default function UserDetailsPage({ params }: PageProps) {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading)
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-64" />
+        <div className="grid gap-6 lg:grid-cols-3">
+          <SkeletonCard className="h-80" />
+          <SkeletonCard className="h-80 lg:col-span-2" />
+        </div>
+      </div>
+    );
   if (error || !user) return <ErrorState onRetry={() => refetch()} />;
 
 <<<<<<< HEAD

@@ -3,7 +3,7 @@
 import { Cloud, Wind, Droplets, Sun, Leaf, Clock } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonGrid } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { formatDateTime } from "@/utils";
@@ -24,7 +24,7 @@ function formatUpdatedAt(timestamp: string | Date | null | undefined): string {
 export default function EnvironmentPage() {
   const { data, isLoading, error, refetch } = useEnvironment();
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading) return <SkeletonGrid cards={4} className="pt-2" />;
   if (error) return <ErrorState onRetry={() => refetch()} />;
   if (!data?.weather || !data.airQuality) {
     return <ErrorState message="Current weather and air quality data are unavailable." onRetry={() => refetch()} />;

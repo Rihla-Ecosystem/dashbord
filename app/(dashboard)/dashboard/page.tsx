@@ -14,7 +14,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { SkeletonGrid } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
 import { useUsers } from "@/hooks/useUsers";
@@ -79,7 +79,7 @@ export default function DashboardPage() {
     queryFn: () => dashboardApi.getTopUsers(),
   });
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading) return <SkeletonGrid cards={6} />;
   if (error)
     {
       console.log("Error fetching dashboard data:", error);
@@ -119,6 +119,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).totalUsers ?? usersData?.total ?? users.length))}
           icon={<Users className="size-5" />}
           trend={Number((stats as Record<string, unknown>).newUsersToday ?? 0)}
+          trendLabel="new today"
           gradient="bg-gradient-to-br from-violet-500 to-purple-600"
         />
         <StatCard
@@ -126,6 +127,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).newUsersToday ?? growthQuery.data?.slice(-1)?.[0]?.value ?? 0))}
           icon={<Shield className="size-5" />}
           trend={Number((stats as Record<string, unknown>).newUsersThisWeek ?? 0)}
+          trendLabel="this week"
           gradient="bg-gradient-to-br from-blue-500 to-cyan-600"
         />
         <StatCard
@@ -133,6 +135,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).revenueToday ?? revenueSeries.reduce((sum, item) => sum + Number(item.value), 0) ?? 0))}
           icon={<UserCheck className="size-5" />}
           trend={Number((stats as Record<string, unknown>).revenueThisWeek ?? 0)}
+          trendLabel="this week"
           gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
         />
         <StatCard
@@ -140,6 +143,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).completedPayments ?? 0))}
           icon={<BadgeCheck className="size-5" />}
           trend={Number((stats as Record<string, unknown>).pendingPayments ?? 0)}
+          trendLabel="pending"
           gradient="bg-gradient-to-br from-amber-500 to-orange-600"
         />
         <StatCard
@@ -147,6 +151,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).totalWalletTokens ?? 0))}
           icon={<Zap className="size-5" />}
           trend={Number((stats as Record<string, unknown>).averageWalletBalance ?? 0)}
+          trendLabel="avg balance"
           gradient="bg-gradient-to-br from-pink-500 to-rose-600"
         />
         <StatCard
@@ -154,6 +159,7 @@ export default function DashboardPage() {
           value={formatNumber(Number((stats as Record<string, unknown>).verifiedUsers ?? users.filter((u) => u.verified).length))}
           icon={<Activity className="size-5" />}
           trend={Number((stats as Record<string, unknown>).activeUsers ?? 0)}
+          trendLabel="active"
           gradient="bg-gradient-to-br from-brand to-brand-dark"
         />
       </div>
