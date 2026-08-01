@@ -41,9 +41,20 @@ export const SIDEBAR_COLLAPSED_WIDTH = 72;
 export const QUERY_KEYS = {
   profile: ["profile"] as const,
   users: (params?: unknown) => ["users", params] as const,
+  dashboardUsers: (params?: unknown) => ["dashboard-users", params] as const,
   user: (id: string) => ["user", id] as const,
+  dashboardUser: (id: string) => ["dashboard-user", id] as const,
+  dashboardUserStats: (id: string) => ["dashboard-user-stats", id] as const,
   userBadges: (id: string) => ["user-badges", id] as const,
   auditLogs: (params?: unknown) => ["audit-logs", params] as const,
+  dashboardStats: ["dashboard-stats"] as const,
+  dashboardActivity: (params?: unknown) => ["dashboard-activity", params] as const,
+  dashboardGrowth: (params?: unknown) => ["dashboard-growth", params] as const,
+  dashboardRevenue: (params?: unknown) => ["dashboard-revenue", params] as const,
+  dashboardCountries: ["dashboard-countries"] as const,
+  dashboardLanguages: ["dashboard-languages"] as const,
+  dashboardRetention: ["dashboard-retention"] as const,
+  dashboardTopUsers: ["dashboard-top-users"] as const,
   environment: ["environment"] as const,
   geoSearch: (params?: unknown) => ["geo-search", params] as const,
   geoPois: (params?: unknown) => ["geo-pois", params] as const,
@@ -56,7 +67,6 @@ export const QUERY_KEYS = {
   adminTokenWallet: (userId: string) => ["admin-token-wallet", userId] as const,
   adminTokenTransactions: (userId: string, params?: unknown) =>
     ["admin-token-transactions", userId, params] as const,
-  dashboardStats: ["dashboard-stats"] as const,
 } as const;
 
 export interface NavItem {
@@ -68,6 +78,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/analytics", label: "Analytics", icon: "analytics" },
   { href: "/users", label: "Users", icon: "users", roles: ["ADMIN", "MODERATOR"] },
   { href: "/roles", label: "Roles", icon: "roles", roles: ["ADMIN"] },
   { href: "/badges", label: "Badges", icon: "badges", roles: ["ADMIN", "MODERATOR"] },
@@ -90,6 +101,7 @@ export const AUTH_ROUTES = [
 
 export const PROTECTED_ROUTES = [
   "/dashboard",
+  "/analytics",
   "/users",
   "/roles",
   "/badges",

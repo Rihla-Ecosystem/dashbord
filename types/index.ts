@@ -7,6 +7,123 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface ApiUserRole {
+  name?: string;
+}
+
+export interface ApiUser {
+  id: string;
+  email: string;
+  displayName?: string;
+  name?: string;
+  avatarUrl?: string | null;
+  avatar?: string | null;
+  bio?: string | null;
+  gender?: Gender | "MALE" | "FEMALE" | null;
+  nationality?: string | null;
+  language?: string[];
+  languages?: string[];
+  budgetLevel?: string | null;
+  budget?: string | null;
+  arrivalDate?: string | null;
+  arrival?: string | null;
+  departureDate?: string | null;
+  departure?: string | null;
+  travelStyle?: string | null;
+  interests?: string[] | null;
+  accommodationType?: string | null;
+  accommodation?: string | null;
+  roleId?: number | null;
+  role?: ApiUserRole | UserRole | string | null;
+  isEmailVerified?: boolean;
+  verified?: boolean;
+  banned?: boolean;
+  xp?: number;
+  level?: number;
+  createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+}
+
+export interface ApiLoginResponse {
+  accessToken: string;
+  user: ApiUser;
+}
+
+export interface ApiRegisterResponse {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt: string;
+}
+
+export interface ApiBadge {
+  id: number;
+  name: string;
+  description: string;
+  iconUrl?: string | null;
+  criteriaType?: string;
+  criteriaValue?: number | null;
+}
+
+export interface ApiAuditLog {
+  id: string;
+  actorId?: string | null;
+  action: string;
+  targetUserId?: string | null;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  actor?: {
+    displayName?: string;
+    email?: string;
+  };
+  target?: {
+    displayName?: string;
+    email?: string;
+  };
+}
+
+export interface DashboardSeriesPoint {
+  name: string;
+  value: number;
+  [key: string]: string | number;
+}
+
+export interface DashboardStatisticsResponse {
+  [key: string]: unknown;
+}
+
+export interface DashboardUserStatisticsResponse {
+  [key: string]: unknown;
+}
+
+export interface DashboardUserFilters extends UsersQueryParams {
+  banned?: boolean;
+  deleted?: boolean;
+  from?: string;
+  to?: string;
+}
+
+export interface GeoSearchRequest {
+  q: string;
+  lat?: number;
+  lon?: number;
+  radius?: number;
+  categories?: string;
+}
+
+export interface GeoPoiRequest {
+  lat: number;
+  lon: number;
+  radius?: number;
+  categories?: string;
+}
+
+export interface EnvRequest {
+  lat: number;
+  lon: number;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -171,11 +288,12 @@ export interface PrayerTime {
 }
 
 export interface EnvironmentData {
-  weather: WeatherData;
-  airQuality: AirQualityData;
-  prayerTimes: PrayerTime[];
-  location?: string;
-  updatedAt: string;
+  weather?: WeatherData | null;
+  airQuality?: AirQualityData | null;
+  prayerTimes?: PrayerTime[] | null;
+  overview?: Record<string, unknown> | null;
+  location?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface DashboardStats {

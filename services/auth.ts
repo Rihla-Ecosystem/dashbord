@@ -1,29 +1,47 @@
 import { axiosInstance } from "./axios";
 import type {
-  AuthResponse,
+  ApiLoginResponse,
+  ApiRegisterResponse,
+  ApiUser,
   ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
   ResetPasswordRequest,
-  User,
+  UpdateProfileRequest,
 } from "@/types";
+import { normalizeBadge, normalizeUser } from "./transformers";
+
+function toUpdateProfileInput(data: Partial<UpdateProfileRequest>) {
+  return {
+    display_name: data.name,
+    bio: data.bio,
+    nationality: data.nationality,
+    language: data.languages,
+    travel_style: data.travelStyle,
+    budget_level: data.budget,
+    accommodation_type: data.accommodation,
+    arrival_date: data.arrival,
+    departure_date: data.departure,
+  };
+}
 
 export const authApi = {
-  login: (data: LoginRequest) =>
-    axiosInstance.post<AuthResponse>("/auth/login", data),
+  login: async (data: LoginRequest) => {
+    const response = await axiosInstance.post<ApiLoginResponse>("/auth/login", data);
+    return {
+      accessToken: response.data.accessToken,
+      user: normalizeUser(response.data.user),
+    };
+  },
 
   register: (data: RegisterRequest) =>
-    axiosInstance.post<AuthResponse>("/auth/register", data),
+    axiosInstance.post<ApiRegisterResponse>("/auth/register", data).then((response) => response.data),
 
   logout: () => axiosInstance.post("/auth/logout"),
 
   logoutAll: () => axiosInstance.post("/auth/logout-all"),
 
-  refresh: (refreshToken: string) =>
-    axiosInstance.post<{ accessToken: string; refreshToken: string }>(
-      "/auth/refresh",
-      { refreshToken }
-    ),
+  refresh: () => axiosInstance.post<{ accessToken: string }>("/auth/refresh"),
 
   forgotPassword: (data: ForgotPasswordRequest) =>
     axiosInstance.post<{ message: string }>("/auth/forgot-password", data),
@@ -36,23 +54,33 @@ export const authApi = {
 };
 
 export const usersApi = {
-  getMe: () => axiosInstance.get<User>("/users/me"),
+  getMe: async () => {
+    const { data } = await axiosInstance.get<ApiUser>("/users/me");
+    return normalizeUser(data);
+  },
 
-  updateMe: (data: Partial<User>) =>
-    axiosInstance.patch<User>("/users/me", data),
+  updateMe: async (data: Partial<UpdateProfileRequest>) => {
+    const { data: response } = await axiosInstance.patch<ApiUser>("/users/me", toUpdateProfileInput(data));
+    return normalizeUser(response);
+  },
 
   deleteMe: () => axiosInstance.delete("/users/me"),
 
   uploadAvatar: (file: File) => {
     const formData = new FormData();
     formData.append("avatar", file);
-    return axiosInstance.post<User>("/users/me/avatar", formData, {
+    return axiosInstance.post<ApiUser>("/users/me/avatar", formData, {
       headers: { "Content-Type": "multipart/form-data" },
-    });
+    }).then((response) => normalizeUser(response.data));
   },
 
-  deleteAvatar: () => axiosInstance.delete<User>("/users/me/avatar"),
+  deleteAvatar: async () => {
+    const { data } = await axiosInstance.delete<ApiUser>("/users/me/avatar");
+    return normalizeUser(data);
+  },
 
-  getBadges: (userId: string) =>
-    axiosInstance.get(`/users/${userId}/badges`),
+  getBadges: async (userId: string) => {
+    const { data } = await axiosInstance.get(`/users/${userId}/badges`);
+    return Array.isArray(data) ? data.map((item) => normalizeBadge(item as Record<string, unknown>)) : [];
+  },
 };

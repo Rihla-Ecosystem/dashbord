@@ -1,11 +1,16 @@
 import { axiosInstance } from "./axios";
-import type { GeoPlace, GeoPoiParams, GeoSearchParams } from "@/types";
+import type { GeoPoiRequest, GeoSearchRequest } from "@/types";
 import { buildQueryString } from "@/utils";
+import { normalizeGeoPlaces } from "./transformers";
 
 export const geoApi = {
-  search: (params: GeoSearchParams) =>
-    axiosInstance.get<GeoPlace[]>(`/geo/search${buildQueryString(params)}`),
+  search: async (params: GeoSearchRequest) => {
+    const { data } = await axiosInstance.get<unknown>(`/geo/search${buildQueryString(params)}`);
+    return normalizeGeoPlaces(data);
+  },
 
-  getPois: (params: GeoPoiParams) =>
-    axiosInstance.get<GeoPlace[]>(`/geo/pois${buildQueryString(params)}`),
+  getPois: async (params: GeoPoiRequest) => {
+    const { data } = await axiosInstance.get<unknown>(`/geo/pois${buildQueryString(params)}`);
+    return normalizeGeoPlaces(data);
+  },
 };

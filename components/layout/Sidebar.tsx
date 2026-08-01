@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar as FlowbiteSidebar, SidebarItem, SidebarItemGroup, SidebarItems } from "flowbite-react";
 import {
   HiOutlineViewGrid,
+  HiOutlineChartBar,
   HiOutlineUsers,
   HiOutlineShieldCheck,
   HiOutlineBadgeCheck,
@@ -25,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 const iconMap: Record<string, React.ReactNode> = {
   dashboard: <HiOutlineViewGrid className="size-5" />,
+  analytics: <HiOutlineChartBar className="size-5" />,
   users: <HiOutlineUsers className="size-5" />,
   roles: <HiOutlineShieldCheck className="size-5" />,
   badges: <HiOutlineBadgeCheck className="size-5" />,

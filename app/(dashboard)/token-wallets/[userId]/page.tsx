@@ -28,7 +28,7 @@ function Details() {
   const { user, wallet, summary } = details.data;
   return <div className="space-y-6">
     <PageHeader title="Token Wallet" description="Wallet balance, activity, and administrative controls.">
-      <Button variant="outline" render={<Link href="/token-wallets" />}><ArrowLeft className="size-4" /> All wallets</Button>
+      <Button variant="outline" nativeButton={false} render={<Link href="/token-wallets" />}><ArrowLeft className="size-4" /> All wallets</Button>
       <Button onClick={() => setBonusOpen(true)}><Gift className="size-4" /> Grant Bonus</Button>
       <Button variant="secondary" onClick={() => setAdjustOpen(true)}><CirclePlus className="size-4" /> Adjust Tokens</Button>
     </PageHeader>

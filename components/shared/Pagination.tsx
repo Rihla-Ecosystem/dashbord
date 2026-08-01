@@ -47,7 +47,7 @@ export function Pagination({
       <div className="flex items-center gap-2">
         {onLimitChange && (
           <Select value={String(limit)} onValueChange={(v) => onLimitChange(Number(v))}>
-            <SelectTrigger className="h-9 w-[100px] rounded-xl">
+            <SelectTrigger className="h-9 w-25 rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

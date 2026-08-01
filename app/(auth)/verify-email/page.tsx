@@ -12,11 +12,10 @@ import { CheckCircle, XCircle } from "lucide-react";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(token ? "loading" : "error");
 
   useEffect(() => {
     if (!token) {
-      setStatus("error");
       return;
     }
     authApi
@@ -40,7 +39,7 @@ function VerifyEmailContent() {
         {status === "success" && <CheckCircle className="size-16 text-emerald-500" />}
         {status === "error" && <XCircle className="size-16 text-destructive" />}
         {status !== "loading" && (
-          <Button render={<Link href="/login" />} className="rounded-xl">
+          <Button nativeButton={false} render={<Link href="/login" />} className="rounded-xl">
             Continue to login
           </Button>
         )}

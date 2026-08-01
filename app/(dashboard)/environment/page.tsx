@@ -7,14 +7,31 @@ import { PageLoader } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { formatDateTime } from "@/utils";
+import type { PrayerTime } from "@/types";
+
+function formatUpdatedAt(timestamp: string | Date | null | undefined): string {
+  if (timestamp instanceof Date) {
+    return Number.isNaN(timestamp.getTime()) ? "—" : formatDateTime(timestamp);
+  }
+
+  if (typeof timestamp === "string" && !Number.isNaN(new Date(timestamp).getTime())) {
+    return formatDateTime(timestamp);
+  }
+
+  return "—";
+}
 
 export default function EnvironmentPage() {
   const { data, isLoading, error, refetch } = useEnvironment();
 
   if (isLoading) return <PageLoader />;
   if (error) return <ErrorState onRetry={() => refetch()} />;
+  if (!data?.weather || !data.airQuality) {
+    return <ErrorState message="Current weather and air quality data are unavailable." onRetry={() => refetch()} />;
+  }
 
-  const { weather, airQuality, prayerTimes, location, updatedAt } = data!;
+  const { weather, airQuality, location, updatedAt } = data;
+  const prayerTimes: PrayerTime[] = data.prayerTimes ?? [];
 
   const aqiColor =
     airQuality.aqi <= 50
@@ -104,7 +121,7 @@ export default function EnvironmentPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Updated</span>
-              <span className="font-medium">{formatDateTime(updatedAt)}</span>
+              <span className="font-medium">{formatUpdatedAt(updatedAt)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Air Quality</span>

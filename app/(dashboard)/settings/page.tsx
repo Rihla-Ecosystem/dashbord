@@ -45,8 +45,12 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={theme ?? "system"} onValueChange={setTheme}>
-              <SelectTrigger className="w-[130px] rounded-xl">
+            <Select value={theme ?? "system"} onValueChange={(value) => {
+              if (value !== null) {
+                setTheme(value);
+              }
+            }}>
+              <SelectTrigger className="w-32 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -70,7 +74,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <Select defaultValue="en">
-            <SelectTrigger className="w-[130px] rounded-xl">
+            <SelectTrigger className="w-32 rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,7 +94,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">Update your personal information</p>
             </div>
           </div>
-          <Button variant="outline" className="rounded-xl" render={<Link href="/profile" />}>
+          <Button variant="outline" className="rounded-xl" nativeButton={false} render={<Link href="/profile" />}>
             Manage
           </Button>
         </div>
