@@ -92,6 +92,7 @@ export function normalizePaginatedUsers(
 
 export function normalizeBadge(apiBadge: Partial<ApiBadge>): Badge {
   return {
+
     id: asString(apiBadge.id ?? apiBadge.criteriaValue ?? ""),
     name: asString(apiBadge.name),
     description: asString(apiBadge.description),
@@ -164,7 +165,7 @@ function normalizeSeriesItem(item: unknown, index: number): DashboardSeriesPoint
   if (item && typeof item === "object") {
     const record = item as Record<string, unknown>;
     const label = asString(
-      record.name ?? record.label ?? record.country ?? record.language ?? record.month ?? record.day ?? record.date ?? record.status,
+      record.name ?? record.label ?? record.period ?? record.country ?? record.nationality ?? record.language ?? record.month ?? record.day ?? record.date ?? record.status,
       `Item ${index + 1}`
     );
     const value = asNumber(
