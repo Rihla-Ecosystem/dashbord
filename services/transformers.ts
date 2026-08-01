@@ -89,7 +89,7 @@ export function normalizePaginatedUsers(
 export function normalizeBadge(apiBadge: unknown): Badge {
   const api = (apiBadge ?? {}) as Partial<ApiBadge> & Record<string, unknown>;
   return {
-    id: asString(api.id ?? api.criteriaValue ?? ""),
+    id: typeof api.id === "number" ? String(api.id) : asString(api.id ?? api.criteriaValue ?? ""),
     name: asString(api.name),
     description: asString(api.description),
     icon: (api.iconUrl ?? null) as string | undefined,
@@ -158,7 +158,7 @@ function normalizeSeriesItem(item: unknown, index: number): DashboardSeriesPoint
   if (item && typeof item === "object") {
     const record = item as Record<string, unknown>;
     const label = asString(
-      record.name ?? record.label ?? record.country ?? record.language ?? record.month ?? record.day ?? record.date ?? record.status,
+      record.name ?? record.label ?? record.period ?? record.country ?? record.nationality ?? record.language ?? record.month ?? record.day ?? record.date ?? record.status,
       `Item ${index + 1}`
     );
     const value = asNumber(
