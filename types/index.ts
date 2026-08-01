@@ -133,6 +133,15 @@ export interface RegisterRequest {
   email: string;
   password: string;
   name: string;
+  gender: "MALE" | "FEMALE";
+  nationality: string;
+  language: string[];
+  budgetLevel?: string;
+  arrivalDate?: string;
+  departureDate?: string;
+  travelStyle?: string;
+  interests?: string[];
+  accommodationType?: string;
 }
 
 export interface ForgotPasswordRequest {

@@ -35,7 +35,20 @@ export const authApi = {
   },
 
   register: (data: RegisterRequest) =>
-    axiosInstance.post<ApiRegisterResponse>("/auth/register", data).then((response) => response.data),
+    axiosInstance.post<ApiRegisterResponse>("/auth/register", {
+      email: data.email,
+      password: data.password,
+      display_name: data.name,
+      gender: data.gender,
+      nationality: data.nationality,
+      language: data.language,
+      budget_level: data.budgetLevel,
+      arrival_date: data.arrivalDate,
+      departure_date: data.departureDate,
+      travel_style: data.travelStyle,
+      interests: data.interests,
+      accommodation_type: data.accommodationType,
+    }).then((response) => response.data),
 
   logout: () => axiosInstance.post("/auth/logout"),
 
@@ -47,7 +60,10 @@ export const authApi = {
     axiosInstance.post<{ message: string }>("/auth/forgot-password", data),
 
   resetPassword: (data: ResetPasswordRequest) =>
-    axiosInstance.post<{ message: string }>("/auth/reset-password", data),
+    axiosInstance.post<{ message: string }>("/auth/reset-password", {
+      token: data.token,
+      new_password: data.password,
+    }),
 
   verifyEmail: (token: string) =>
     axiosInstance.get<{ message: string }>(`/auth/verify-email?token=${token}`),

@@ -17,6 +17,9 @@ const registerSchema = z
     email: z.string().email("Invalid email address"),
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string(),
+    gender: z.enum(["MALE", "FEMALE"]),
+    nationality: z.string().min(1, "Nationality is required"),
+    language: z.array(z.string()).min(1, "Select at least one language"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -31,13 +34,21 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
 
   const onSubmit = async (data: RegisterForm) => {
     setIsSubmitting(true);
     try {
-      await registerUser({ name: data.name, email: data.email, password: data.password });
+      await registerUser({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        gender: data.gender,
+        nationality: data.nationality,
+        language: data.language,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -60,6 +71,33 @@ export default function RegisterPage() {
             <label htmlFor="email" className="text-sm font-medium">Email</label>
             <Input id="email" type="email" placeholder="john@example.com" className="rounded-xl" {...register("email")} />
             {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="nationality" className="text-sm font-medium">Nationality</label>
+            <Input id="nationality" placeholder="Egyptian" className="rounded-xl" {...register("nationality")} />
+            {errors.nationality && <p className="text-xs text-destructive">{errors.nationality.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="gender" className="text-sm font-medium">Gender</label>
+            <select id="gender" className="h-9 w-full rounded-xl border border-input bg-transparent px-3 text-sm" {...register("gender")}>
+              <option value="">Select gender</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+            </select>
+            {errors.gender && <p className="text-xs text-destructive">{errors.gender.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="language" className="text-sm font-medium">Language</label>
+            <Input
+              id="language"
+              placeholder="e.g. Arabic, English"
+              className="rounded-xl"
+              onChange={(e) => {
+                const languages = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
+                setValue("language", languages, { shouldValidate: true });
+              }}
+            />
+            {errors.language && <p className="text-xs text-destructive">{errors.language.message}</p>}
           </div>
           <div className="space-y-2">
             <label htmlFor="password" className="text-sm font-medium">Password</label>
