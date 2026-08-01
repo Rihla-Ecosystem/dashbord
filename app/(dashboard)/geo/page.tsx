@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { DashboardCard } from "@/components/shared/DashboardCard";
-import { PageLoader } from "@/components/shared/LoadingSpinner";
+import { Skeleton } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useGeoSearch, useGeoPois } from "@/hooks/useGeo";
@@ -19,6 +19,22 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+function PlaceSkeletons() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2" aria-hidden>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-3 rounded-xl border border-border/50 p-4">
+          <Skeleton className="size-10 rounded-lg" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function GeoPage() {
   const [query, setQuery] = useState("");
@@ -97,7 +113,7 @@ export default function GeoPage() {
         <div className="space-y-4 lg:col-span-2">
           <DashboardCard title="Search Results">
             {searchLoading ? (
-              <PageLoader />
+              <PlaceSkeletons />
             ) : searchError ? (
               <ErrorState message="Failed to search places" />
             ) : !debouncedQuery ? (
@@ -115,7 +131,7 @@ export default function GeoPage() {
 
           <DashboardCard title="Nearby Places">
             {poisLoading ? (
-              <PageLoader />
+              <PlaceSkeletons />
             ) : poisError ? (
               <ErrorState message="Failed to load nearby places" />
             ) : !pois?.length ? (

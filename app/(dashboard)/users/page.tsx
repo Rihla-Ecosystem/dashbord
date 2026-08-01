@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield } from "lucide-react";
 import { Users, BadgeCheck } from "lucide-react";
@@ -40,10 +41,12 @@ import { dashboardApi } from "@/services/api";
 import { QUERY_KEYS } from "@/constants";
 
 export default function UsersPage() {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("search") ?? "";
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(urlSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(urlSearch);
   const [role, setRole] = useState<UserRole | "">("");
   const [gender, setGender] = useState<Gender | "">("");
   const [verified, setVerified] = useState<string>("");
@@ -63,6 +66,14 @@ export default function UsersPage() {
       }, 300),
     []
   );
+
+  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
+  if (prevUrlSearch !== urlSearch) {
+    setPrevUrlSearch(urlSearch);
+    setSearch(urlSearch);
+    setDebouncedSearch(urlSearch);
+    setPage(1);
+  }
 
   const sortBy = sorting[0]?.id;
   const sortOrder = sorting[0]?.desc ? "desc" : "asc";
@@ -176,7 +187,7 @@ export default function UsersPage() {
     []
   );
 
-  const hasFilters = !!(role || gender || verified);
+  const hasFilters = !!(role || gender || verified || banned || deleted || dateFrom || dateTo);
 
   if (error) return <ErrorState onRetry={() => refetch()} />;
 
