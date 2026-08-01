@@ -93,7 +93,7 @@ export default function AuditLogsPage() {
         placeholder="Search logs..."
       />
 
-      <FilterBar />
+      <FilterBar>{null}</FilterBar>
 
       {view === "table" ? (
         <>

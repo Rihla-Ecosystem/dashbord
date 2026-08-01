@@ -7,6 +7,7 @@ import { PageLoader } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { formatDateTime } from "@/utils";
+import type { PrayerTime } from "@/types";
 
 export default function EnvironmentPage() {
   const { data, isLoading, error, refetch } = useEnvironment();
@@ -81,7 +82,7 @@ export default function EnvironmentPage() {
 
         <DashboardCard title="Prayer Times" className="sm:col-span-2 xl:col-span-1">
           <div className="space-y-2">
-            {prayerTimes.map((prayer) => (
+            {prayerTimes.map((prayer: PrayerTime) => (
               <div
                 key={prayer.name}
                 className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
