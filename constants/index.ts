@@ -56,7 +56,14 @@ export const QUERY_KEYS = {
   geoPois: (params?: unknown) => ["geo-pois", params] as const,
 } as const;
 
-export const NAV_ITEMS = [
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: string;
+  roles?: ("ADMIN" | "MODERATOR" | "USER")[];
+}
+
+export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/analytics", label: "Analytics", icon: "analytics" },
   { href: "/users", label: "Users", icon: "users", roles: ["ADMIN", "MODERATOR"] },
@@ -66,7 +73,7 @@ export const NAV_ITEMS = [
   { href: "/environment", label: "Environment", icon: "environment" },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" },
-] as const;
+];
 
 export const AUTH_ROUTES = [
   "/login",

@@ -225,7 +225,7 @@ export default function UsersPage() {
             <SelectItem value="USER">User</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={gender || "all"} onValueChange={(v) => { setGender(v === "all" ? "" : v as Gender); setPage(1); }}>
+        <Select value={gender || "all"} onValueChange={(v) => { setGender((v ?? "") === "all" ? "" : (v as Gender)); setPage(1); }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genders</SelectItem>
@@ -234,7 +234,7 @@ export default function UsersPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : (v ?? "")); setPage(1); }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -242,7 +242,7 @@ export default function UsersPage() {
             <SelectItem value="false">Unverified</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : (v ?? "")); setPage(1); }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Banned" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -250,7 +250,7 @@ export default function UsersPage() {
             <SelectItem value="false">Active</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : v); setPage(1); }}>
+        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : (v ?? "")); setPage(1); }}>
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Deleted" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>

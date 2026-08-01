@@ -44,30 +44,31 @@ function normalizeRole(value: unknown): UserRole {
   return "USER";
 }
 
-export function normalizeUser(apiUser: Partial<ApiUser> & Record<string, unknown>): User {
-  const roleValue = apiUser.role ?? apiUser.roleId;
+export function normalizeUser(apiUser: unknown): User {
+  const api = (apiUser ?? {}) as Partial<ApiUser> & Record<string, unknown>;
+  const roleValue = api.role ?? api.roleId;
 
   return {
-    id: asString(apiUser.id),
-    email: asString(apiUser.email),
-    name: asString(apiUser.displayName ?? apiUser.name, asString(apiUser.email)),
-    avatar: (apiUser.avatarUrl ?? apiUser.avatar ?? null) as string | null | undefined,
+    id: asString(api.id),
+    email: asString(api.email),
+    name: asString(api.displayName ?? api.name, asString(api.email)),
+    avatar: (api.avatarUrl ?? api.avatar ?? null) as string | null | undefined,
     role: normalizeRole(roleValue),
-    bio: (apiUser.bio ?? null) as string | null | undefined,
-    nationality: (apiUser.nationality ?? null) as string | null | undefined,
-    languages: asStringArray(apiUser.language ?? apiUser.languages),
-    travelStyle: (apiUser.travelStyle ?? null) as string | null | undefined,
-    budget: (apiUser.budgetLevel ?? apiUser.budget ?? null) as string | null | undefined,
-    accommodation: (apiUser.accommodationType ?? apiUser.accommodation ?? null) as string | null | undefined,
-    arrival: (apiUser.arrivalDate ?? apiUser.arrival ?? null) as string | null | undefined,
-    departure: (apiUser.departureDate ?? apiUser.departure ?? null) as string | null | undefined,
-    gender: (apiUser.gender ?? null) as User["gender"],
-    xp: asNumber(apiUser.xp),
-    level: asNumber(apiUser.level, 1),
-    verified: Boolean(apiUser.isEmailVerified ?? apiUser.verified),
-    banned: Boolean(apiUser.banned),
-    createdAt: asString(apiUser.createdAt),
-    updatedAt: apiUser.updatedAt,
+    bio: (api.bio ?? null) as string | null | undefined,
+    nationality: (api.nationality ?? null) as string | null | undefined,
+    languages: asStringArray(api.language ?? api.languages),
+    travelStyle: (api.travelStyle ?? null) as string | null | undefined,
+    budget: (api.budgetLevel ?? api.budget ?? null) as string | null | undefined,
+    accommodation: (api.accommodationType ?? api.accommodation ?? null) as string | null | undefined,
+    arrival: (api.arrivalDate ?? api.arrival ?? null) as string | null | undefined,
+    departure: (api.departureDate ?? api.departure ?? null) as string | null | undefined,
+    gender: (api.gender ?? null) as User["gender"],
+    xp: asNumber(api.xp),
+    level: asNumber(api.level, 1),
+    verified: Boolean(api.isEmailVerified ?? api.verified),
+    banned: Boolean(api.banned),
+    createdAt: asString(api.createdAt),
+    updatedAt: api.updatedAt as string | undefined,
   };
 }
 
@@ -85,13 +86,14 @@ export function normalizePaginatedUsers(
   };
 }
 
-export function normalizeBadge(apiBadge: Partial<ApiBadge> & Record<string, unknown>): Badge {
+export function normalizeBadge(apiBadge: unknown): Badge {
+  const api = (apiBadge ?? {}) as Partial<ApiBadge> & Record<string, unknown>;
   return {
-    id: asString(apiBadge.id ?? apiBadge.criteriaValue ?? ""),
-    name: asString(apiBadge.name),
-    description: asString(apiBadge.description),
-    icon: (apiBadge.iconUrl ?? null) as string | null | undefined,
-    earnedAt: typeof apiBadge.earnedAt === "string" ? apiBadge.earnedAt : undefined,
+    id: asString(api.id ?? api.criteriaValue ?? ""),
+    name: asString(api.name),
+    description: asString(api.description),
+    icon: (api.iconUrl ?? null) as string | undefined,
+    earnedAt: typeof api.earnedAt === "string" ? api.earnedAt : undefined,
   };
 }
 
@@ -107,17 +109,18 @@ export function normalizeBadgesResponse(response: unknown): Badge[] {
   return [];
 }
 
-export function normalizeAuditLog(apiLog: Partial<ApiAuditLog> & Record<string, unknown>): AuditLog {
+export function normalizeAuditLog(apiLog: unknown): AuditLog {
+  const api = (apiLog ?? {}) as Partial<ApiAuditLog> & Record<string, unknown>;
   return {
-    id: asString(apiLog.id),
-    action: asString(apiLog.action),
-    actorId: asString(apiLog.actorId),
-    actorName: apiLog.actor?.displayName,
-    actorEmail: apiLog.actor?.email,
-    targetId: asString(apiLog.targetUserId || apiLog.target?.email),
-    targetType: apiLog.target?.displayName ?? apiLog.target?.email ?? undefined,
-    metadata: (apiLog.metadata ?? undefined) as Record<string, unknown> | undefined,
-    createdAt: asString(apiLog.createdAt),
+    id: asString(api.id),
+    action: asString(api.action),
+    actorId: asString(api.actorId),
+    actorName: api.actor?.displayName,
+    actorEmail: api.actor?.email,
+    targetId: asString(api.targetUserId || api.target?.email),
+    targetType: api.target?.displayName ?? api.target?.email ?? undefined,
+    metadata: (api.metadata ?? undefined) as Record<string, unknown> | undefined,
+    createdAt: asString(api.createdAt),
   };
 }
 

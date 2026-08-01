@@ -87,13 +87,13 @@ export default function AuditLogsPage() {
         </div>
       </PageHeader>
 
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-        placeholder="Search logs..."
-      />
-
-      <FilterBar />
+      <FilterBar>
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search logs..."
+        />
+      </FilterBar>
 
       {view === "table" ? (
         <>
