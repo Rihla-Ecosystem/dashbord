@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, MapPin, Globe, Calendar, Zap, Shield, Trash2, RotateCcw, Ban, BadgeCheck, Power, ZapOff } from "lucide-react";
+import { ArrowLeft, MapPin, Globe, Calendar, Zap, Shield, Trash2, RotateCcw, Ban, BadgeCheck, Power, ZapOff, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SkeletonCard, Skeleton } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -11,10 +11,20 @@ import { DashboardCard } from "@/components/shared/DashboardCard";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import { useUser, useUserBadges } from "@/hooks/useUser";
 import { formatDate, getInitials } from "@/utils";
 import { use } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { dashboardApi } from "@/services/api";
 import { QUERY_KEYS } from "@/constants";
 import { toast } from "sonner";
@@ -119,6 +129,29 @@ export default function UserDetailsPage({ params }: PageProps) {
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 
+  const updateUser = useMutation({
+    mutationFn: (data: Record<string, unknown>) => dashboardApi.updateUser(id, data),
+    onSuccess: () => {
+      toast.success("User updated");
+      invalidate();
+      setShowEditDialog(false);
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({
+    displayName: user?.name ?? "",
+    bio: user?.bio ?? "",
+    nationality: user?.nationality ?? "",
+    language: (user?.languages ?? []).join(", "),
+    budgetLevel: user?.budget ?? "",
+    travelStyle: user?.travelStyle ?? "",
+    accommodation: user?.accommodation ?? "",
+    arrival: user?.arrival ?? "",
+    departure: user?.departure ?? "",
+  });
+
   if (isLoading)
     return (
       <div className="space-y-6">
@@ -171,6 +204,7 @@ export default function UserDetailsPage({ params }: PageProps) {
         <div className="space-y-6 lg:col-span-2">
           <DashboardCard title="Actions" description="Administrative controls for this account">
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <Button variant="outline" onClick={() => setShowEditDialog(true)} disabled={updateUser.isPending}><Pencil className="size-4" /> Edit Profile</Button>
               <Button variant="outline" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><BadgeCheck className="size-4" /> Verify Email</Button>
               <Button variant="outline" onClick={() => activateMutation.mutate()} disabled={activateMutation.isPending}><Power className="size-4" /> Activate</Button>
               <Button variant="outline" onClick={() => deactivateMutation.mutate()} disabled={deactivateMutation.isPending}><Ban className="size-4" /> Deactivate</Button>
@@ -181,6 +215,115 @@ export default function UserDetailsPage({ params }: PageProps) {
               <Button variant="destructive" onClick={() => setConfirmAction("delete")} disabled={deleteMutation.isPending}><Trash2 className="size-4" /> Delete</Button>
             </div>
           </DashboardCard>
+
+          <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Edit User Profile</DialogTitle>
+                <DialogDescription>Update user profile information</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <label htmlFor="edit-name">Display Name</label>
+                  <Input
+                    id="edit-name"
+                    value={editForm.displayName}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, displayName: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-bio">Bio</label>
+                  <Input
+                    id="edit-bio"
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, bio: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-nationality">Nationality</label>
+                  <Input
+                    id="edit-nationality"
+                    value={editForm.nationality}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-languages">Languages (comma separated)</label>
+                  <Input
+                    id="edit-languages"
+                    value={editForm.language}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, language: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-budget">Budget Level</label>
+                  <Input
+                    id="edit-budget"
+                    value={editForm.budgetLevel}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, budgetLevel: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-travel">Travel Style</label>
+                  <Input
+                    id="edit-travel"
+                    value={editForm.travelStyle}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, travelStyle: e.target.value }))}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="edit-accommodation">Accommodation Type</label>
+                  <Input
+                    id="edit-accommodation"
+                    value={editForm.accommodation}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, accommodation: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-arrival">Arrival Date</label>
+                    <Input
+                      id="edit-arrival"
+                      type="date"
+                      value={editForm.arrival}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, arrival: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="edit-departure">Departure Date</label>
+                    <Input
+                      id="edit-departure"
+                      type="date"
+                      value={editForm.departure}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, departure: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    await updateUser.mutateAsync({ id, data: {
+                      displayName: editForm.displayName || undefined,
+                      bio: editForm.bio || undefined,
+                      nationality: editForm.nationality || undefined,
+                      language: editForm.language ? editForm.language.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                      budgetLevel: editForm.budgetLevel || undefined,
+                      travelStyle: editForm.travelStyle || undefined,
+                      accommodationType: editForm.accommodation || undefined,
+                      arrivalDate: editForm.arrival || undefined,
+                      departureDate: editForm.departure || undefined,
+                    } });
+                    setShowEditDialog(false);
+                  }}
+                  disabled={updateUser.isPending}
+                >
+                  {updateUser.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <DashboardCard title="Travel Details">
             <div className="grid gap-4 sm:grid-cols-2">

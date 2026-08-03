@@ -66,6 +66,52 @@ export const dashboardApi = {
     return data;
   },
 
+  createUser: async (userData: {
+    email: string;
+    password: string;
+    displayName: string;
+    avatarUrl?: string;
+    bio?: string;
+    gender: 'MALE' | 'FEMALE';
+    nationality: string;
+    language?: string[];
+    budgetLevel?: string;
+    arrivalDate?: string;
+    departureDate?: string;
+    travelStyle?: string;
+    interests?: string[];
+    accommodationType?: string;
+    roleId?: number;
+  }) => {
+    const { data } = await axiosInstance.post('/dashboard/users', userData);
+    return data;
+  },
+
+  updateUser: async (id: string, updateData: {
+    email?: string;
+    displayName?: string;
+    avatarUrl?: string;
+    bio?: string;
+    gender?: 'MALE' | 'FEMALE';
+    nationality?: string;
+    language?: string[];
+    budgetLevel?: string;
+    arrivalDate?: string;
+    departureDate?: string;
+    travelStyle?: string;
+    interests?: string[];
+    accommodationType?: string;
+    roleId?: number;
+    isActive?: boolean;
+    isEmailVerified?: boolean;
+    isBanned?: boolean;
+    xp?: number;
+    level?: number;
+  }) => {
+    const { data } = await axiosInstance.patch(`/dashboard/users/${id}`, updateData);
+    return data;
+  },
+
   banUser: async (id: string, banned: boolean) => {
     const path = banned ? `/dashboard/users/${id}/ban` : `/dashboard/users/${id}/unban`;
     const { data } = await axiosInstance.patch(path);

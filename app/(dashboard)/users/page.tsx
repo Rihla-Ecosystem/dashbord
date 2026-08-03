@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
-
 import { useAuth } from "@/features/auth/auth-context";
 
-import { MoreHorizontal, Eye, Pencil, Ban, Trash2, Shield, Download, FileSpreadsheet, FileText, Coins } from "lucide-react";
+import { MoreHorizontal, Plus, Eye, Pencil, Ban, Trash2, Shield, Download, FileSpreadsheet, FileText, Coins } from "lucide-react";
+
 import { Users, BadgeCheck } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -37,6 +37,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
 import { formatDate, formatXp, getInitials, formatNumber } from "@/utils";
@@ -104,6 +113,37 @@ export default function UsersPage() {
   const sortBy = sorting[0]?.id;
   const sortOrder = sorting[0]?.desc ? "desc" : "asc";
 
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createForm, setCreateForm] = useState<{
+    email: string;
+    password: string;
+    displayName: string;
+    gender: "MALE" | "FEMALE";
+    nationality: string;
+    language: string[];
+    budgetLevel: string;
+    arrivalDate: string;
+    departureDate: string;
+    travelStyle: string;
+    interests: string;
+    accommodationType: string;
+    roleId: number;
+  }>({
+    email: "",
+    password: "",
+    displayName: "",
+    gender: "MALE",
+    nationality: "",
+    language: [],
+    budgetLevel: "",
+    arrivalDate: "",
+    departureDate: "",
+    travelStyle: "",
+    interests: "",
+    accommodationType: "",
+    roleId: 1,
+  });
+
   const { data, isLoading, error, refetch } = useUsers({
     page,
     limit,
@@ -124,7 +164,7 @@ export default function UsersPage() {
     queryFn: () => dashboardApi.getStatistics(),
   });
 
-  const { banUser, updateRole, deleteUser } = useUserMutations();
+  const { createUser, banUser, updateRole, deleteUser } = useUserMutations();
 
 
   const handleExport = async (format: "csv" | "excel") => {
@@ -158,6 +198,15 @@ export default function UsersPage() {
       setExporting(null);
     }
   };
+
+  const [roles , setRoles] = useState<{ id: number; name: string }[]>([]);
+  useQuery({
+    queryKey: QUERY_KEYS.roles,
+    queryFn: () => dashboardApi.getRoles(),
+    onSuccess: (data) => {
+      setRoles(data);
+    },
+  });
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -261,32 +310,190 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Users" description="Manage platform users and permissions">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="outline" className="rounded-xl" disabled={!!exporting}>
-                {exporting ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Exporting...
-                  </span>
-                ) : (
-                  <>
-                    <Download className="size-4" /> Export
-                  </>
-                )}
+        <div className="flex items-center gap-2">
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger render={
+
+              <Button variant="default" className="rounded-xl">
+                <Plus className="size-4" /> Create User
               </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="rounded-xl">
-            <DropdownMenuItem onClick={() => handleExport("csv")}>
-              <FileText className="size-4" /> Export as CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport("excel")}>
-              <FileSpreadsheet className="size-4" /> Export as Excel
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            }>
+            </DialogTrigger>
+            
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl ">
+              <DialogHeader>
+                <DialogTitle>Create User</DialogTitle>
+                <DialogDescription>Add a new user to the platform</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <label htmlFor="create-email">Email</label>
+                  <Input
+                    id="create-email"
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+                    placeholder="user@example.com"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-password">Password</label>
+                  <Input
+                    id="create-password"
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-name">Display Name</label>
+                  <Input
+                    id="create-name"
+                    value={createForm.displayName}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, displayName: e.target.value }))}
+                    placeholder="User name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <label htmlFor="create-gender">Gender</label>
+                    <Select
+                      value={createForm.gender}
+                      onValueChange={(v) => setCreateForm((prev) => ({ ...prev, gender: v as "MALE" | "FEMALE" }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="create-nationality">Nationality</label>
+                    <Input
+                      id="create-nationality"
+                      value={createForm.nationality}
+                      onChange={(e) => setCreateForm((prev) => ({ ...prev, nationality: e.target.value }))}
+                      placeholder="Country"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-budget">Budget Level</label>
+                  <Input
+                    id="create-budget"
+                    value={createForm.budgetLevel}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, budgetLevel: e.target.value }))}
+                    placeholder="e.g. budget, mid-range, luxury"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-travel">Travel Style</label>
+                  <Input
+                    id="create-travel"
+                    value={createForm.travelStyle}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, travelStyle: e.target.value }))}
+                    placeholder="e.g. solo, group, adventure"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-accommodation">Accommodation Type</label>
+                  <Input
+                    id="create-accommodation"
+                    value={createForm.accommodationType}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, accommodationType: e.target.value }))}
+                    placeholder="e.g. hotel, hostel, Airbnb"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="create-role">Role</label>
+                  <Select
+                    value={String(createForm.roleId)}
+                    onValueChange={(v) => setCreateForm((prev) => ({ ...prev, roleId: Number(v) }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">User</SelectItem>
+                      <SelectItem value="2">Moderator</SelectItem>
+                      <SelectItem value="3">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!createForm.email || !createForm.password || !createForm.displayName || !createForm.nationality) {
+                      return;
+                    }
+                    await createUser.mutateAsync({
+                      email: createForm.email,
+                      password: createForm.password,
+                      displayName: createForm.displayName,
+                      gender: createForm.gender,
+                      nationality: createForm.nationality,
+                      language: createForm.language,
+                      budgetLevel: createForm.budgetLevel || undefined,
+                      arrivalDate: createForm.arrivalDate || undefined,
+                      departureDate: createForm.departureDate || undefined,
+                      travelStyle: createForm.travelStyle || undefined,
+                      interests: createForm.interests ? createForm.interests.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+                      accommodationType: createForm.accommodationType || undefined,
+                      roleId: createForm.roleId,
+                    });
+                    setCreateForm({
+                      email: "",
+                      password: "",
+                      displayName: "",
+                      gender: "MALE",
+                      nationality: "",
+                      language: [],
+                      budgetLevel: "",
+                      arrivalDate: "",
+                      departureDate: "",
+                      travelStyle: "",
+                      interests: "",
+                      accommodationType: "",
+                      roleId: 1,
+                    });
+                    setShowCreateDialog(false);
+                  }}
+                  disabled={createUser.isPending}
+                >
+                  {createUser.isPending ? "Creating..." : "Create User"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" className="rounded-xl" disabled={!!exporting}>
+                  {exporting ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Exporting...
+                    </span>
+                  ) : (
+                    <>
+                      <Download className="size-4" /> Export
+                    </>
+                  )}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuItem onClick={() => handleExport("csv")}>
+                <FileText className="size-4" /> Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("excel")}>
+                <FileSpreadsheet className="size-4" /> Export as Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

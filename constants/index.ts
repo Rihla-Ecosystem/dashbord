@@ -57,6 +57,7 @@ export const QUERY_KEYS = {
   environment: ["environment"] as const,
   geoSearch: (params?: unknown) => ["geo-search", params] as const,
   geoPois: (params?: unknown) => ["geo-pois", params] as const,
+
   payments: (params?: unknown) => ["payments", params] as const,
   payment: (id: string) => ["payment", id] as const,
   tokenPackages: (params?: unknown) => ["token-packages", params] as const,
@@ -66,6 +67,7 @@ export const QUERY_KEYS = {
   adminTokenWallet: (userId: string) => ["admin-token-wallet", userId] as const,
   adminTokenTransactions: (userId: string, params?: unknown) =>
     ["admin-token-transactions", userId, params] as const,
+
 } as const;
 
 export interface NavItem {
