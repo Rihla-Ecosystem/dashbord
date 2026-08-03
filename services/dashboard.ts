@@ -216,11 +216,17 @@ export const dashboardApi = {
     return normalizePaginatedUsers({ data: rows, total: rows.length, page: 1, limit: rows.length || 1, totalPages: 1 });
   },
 
-  exportUsers: async (params: { ids?: string[]; format?: "csv" | "excel" } = {}) => {
-    const { data } = await axiosInstance.post(`/dashboard/users/bulk/export`, params, {
+  exportUsers: async (
+    params: DashboardUserFilters = {},
+    format: "csv" | "excel" = "csv"
+  ) => {
+    const { data, headers } = await axiosInstance.get(`/dashboard/users/export`, {
+      params: { ...mapUserFilters(params), format },
       responseType: "blob",
     });
-    return data as Blob;
+    const disposition = (headers?.["content-disposition"] ?? "") as string;
+    const match = /filename="?([^";]+)"?/.exec(disposition);
+    return { blob: data as Blob, filename: match?.[1] ?? `users.${format === "excel" ? "xlsx" : "csv"}` };
   },
 
   getUserBadges: async (id: string) => {
