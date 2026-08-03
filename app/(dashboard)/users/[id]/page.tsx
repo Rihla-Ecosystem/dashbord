@@ -119,7 +119,11 @@ export default function UserDetailsPage({ params }: PageProps) {
   if (isLoading) return <PageLoader />;
   if (error || !user) return <ErrorState onRetry={() => refetch()} />;
 
+<<<<<<< HEAD
   const badgeList = badges ?? [];
+=======
+  const badgeList = Array.isArray(badges) ? badges : [];
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
 
   return (
     <div className="space-y-6">

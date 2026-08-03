@@ -16,12 +16,14 @@ export function useGeoSearch(params: GeoSearchParams, enabled = true) {
 export function useGeoPois(params: GeoPoiParams, enabled = true) {
   return useQuery({
     queryKey: QUERY_KEYS.geoPois(params),
+
     queryFn: () => geoApi.getPois({
       lat: params.lat,
       lon: params.lng,
       radius: params.radius,
       categories: params.category,
     }),
+
     enabled: enabled && !!params.lat && !!params.lng,
   });
 }

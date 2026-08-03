@@ -79,7 +79,9 @@ axiosInstance.interceptors.response.use(
           undefined,
           { withCredentials: true }
         );
-        setAccessToken(data.accessToken);
+
+
+        setTokens({ accessToken: data.accessToken, refreshToken: "" });
         onTokenRefreshed(data.accessToken);
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
@@ -96,7 +98,7 @@ axiosInstance.interceptors.response.use(
 
     const apiError: ApiError = {
       message:
-        error.response?.data?.error ??
+        (error.response?.data as { error?: string } | undefined)?.error ??
         error.response?.data?.message ??
         error.message ??
         "An unexpected error occurred",

@@ -44,15 +44,18 @@ function normalizeRole(value: unknown): UserRole {
   return "USER";
 }
 
+
 export function normalizeUser(apiUser: Partial<ApiUser>): User {
   const roleValue = apiUser.role ?? apiUser.roleId;
+  const api = (apiUser ?? {}) as Partial<ApiUser> & Record<string, unknown>;
 
   return {
-    id: asString(apiUser.id),
-    email: asString(apiUser.email),
-    name: asString(apiUser.displayName ?? apiUser.name, asString(apiUser.email)),
-    avatar: (apiUser.avatarUrl ?? apiUser.avatar ?? null) as string | null | undefined,
+    id: asString(api.id),
+    email: asString(api.email),
+    name: asString(api.displayName ?? api.name, asString(api.email)),
+    avatar: (api.avatarUrl ?? api.avatar ?? null) as string | null | undefined,
     role: normalizeRole(roleValue),
+
     bio: (apiUser.bio ?? null) as string | null | undefined,
     nationality: (apiUser.nationality ?? null) as string | null | undefined,
     languages: asStringArray(apiUser.language ?? apiUser.languages),
@@ -68,6 +71,7 @@ export function normalizeUser(apiUser: Partial<ApiUser>): User {
     banned: Boolean(apiUser.banned),
     createdAt: asString(apiUser.createdAt),
     updatedAt: apiUser.updatedAt ?? undefined,
+
   };
 }
 
@@ -85,12 +89,14 @@ export function normalizePaginatedUsers(
   };
 }
 
+
 export function normalizeBadge(apiBadge: Partial<ApiBadge>): Badge {
   return {
     id: asString(apiBadge.id ?? apiBadge.criteriaValue ?? ""),
     name: asString(apiBadge.name),
     description: asString(apiBadge.description),
     icon: apiBadge.iconUrl ?? undefined,
+
   };
 }
 
@@ -106,17 +112,21 @@ export function normalizeBadgesResponse(response: unknown): Badge[] {
   return [];
 }
 
+
 export function normalizeAuditLog(apiLog: Partial<ApiAuditLog>): AuditLog {
+
+  const api = (apiLog ?? {}) as Partial<ApiAuditLog> & Record<string, unknown>;
+
   return {
-    id: asString(apiLog.id),
-    action: asString(apiLog.action),
-    actorId: asString(apiLog.actorId),
-    actorName: apiLog.actor?.displayName,
-    actorEmail: apiLog.actor?.email,
-    targetId: asString(apiLog.targetUserId || apiLog.target?.email),
-    targetType: apiLog.target?.displayName ?? apiLog.target?.email ?? undefined,
-    metadata: (apiLog.metadata ?? undefined) as Record<string, unknown> | undefined,
-    createdAt: asString(apiLog.createdAt),
+    id: asString(api.id),
+    action: asString(api.action),
+    actorId: asString(api.actorId),
+    actorName: api.actor?.displayName,
+    actorEmail: api.actor?.email,
+    targetId: asString(api.targetUserId || api.target?.email),
+    targetType: api.target?.displayName ?? api.target?.email ?? undefined,
+    metadata: (api.metadata ?? undefined) as Record<string, unknown> | undefined,
+    createdAt: asString(api.createdAt),
   };
 }
 

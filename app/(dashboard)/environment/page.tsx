@@ -30,15 +30,21 @@ export default function EnvironmentPage() {
     return <ErrorState message="Current weather and air quality data are unavailable." onRetry={() => refetch()} />;
   }
 
+<<<<<<< HEAD
   const { weather, airQuality, location, updatedAt } = data;
   const prayerTimes: PrayerTime[] = data.prayerTimes ?? [];
+=======
+  const { weather, airQuality, prayerTimes, location, updatedAt } = data ?? {};
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
 
   const aqiColor =
-    airQuality.aqi <= 50
-      ? "text-emerald-500"
-      : airQuality.aqi <= 100
-        ? "text-amber-500"
-        : "text-red-500";
+    !airQuality
+      ? "text-muted-foreground"
+      : airQuality.aqi <= 50
+        ? "text-emerald-500"
+        : airQuality.aqi <= 100
+          ? "text-amber-500"
+          : "text-red-500";
 
   return (
     <div className="space-y-6">
@@ -49,68 +55,84 @@ export default function EnvironmentPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardCard title="Weather" className="bg-gradient-to-br from-sky-500/5 to-blue-500/10">
-          <div className="flex items-center gap-4">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-sky-500/10">
-              <Sun className="size-8 text-sky-500" />
-            </div>
-            <div>
-              <p className="text-4xl font-bold">{weather.temperature}°C</p>
-              <p className="capitalize text-muted-foreground">{weather.description}</p>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="rounded-lg bg-background/50 p-2">
-              <Wind className="mx-auto mb-1 size-4 text-muted-foreground" />
-              <p className="font-medium">{weather.windSpeed}</p>
-              <p className="text-xs text-muted-foreground">km/h</p>
-            </div>
-            <div className="rounded-lg bg-background/50 p-2">
-              <Droplets className="mx-auto mb-1 size-4 text-muted-foreground" />
-              <p className="font-medium">{weather.humidity}%</p>
-              <p className="text-xs text-muted-foreground">Humidity</p>
-            </div>
-            <div className="rounded-lg bg-background/50 p-2">
-              <Cloud className="mx-auto mb-1 size-4 text-muted-foreground" />
-              <p className="font-medium">{weather.feelsLike}°</p>
-              <p className="text-xs text-muted-foreground">Feels like</p>
-            </div>
-          </div>
+          {weather ? (
+            <>
+              <div className="flex items-center gap-4">
+                <div className="flex size-16 items-center justify-center rounded-2xl bg-sky-500/10">
+                  <Sun className="size-8 text-sky-500" />
+                </div>
+                <div>
+                  <p className="text-4xl font-bold">{weather.temperature}°C</p>
+                  <p className="capitalize text-muted-foreground">{weather.description}</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="rounded-lg bg-background/50 p-2">
+                  <Wind className="mx-auto mb-1 size-4 text-muted-foreground" />
+                  <p className="font-medium">{weather.windSpeed}</p>
+                  <p className="text-xs text-muted-foreground">km/h</p>
+                </div>
+                <div className="rounded-lg bg-background/50 p-2">
+                  <Droplets className="mx-auto mb-1 size-4 text-muted-foreground" />
+                  <p className="font-medium">{weather.humidity}%</p>
+                  <p className="text-xs text-muted-foreground">Humidity</p>
+                </div>
+                <div className="rounded-lg bg-background/50 p-2">
+                  <Cloud className="mx-auto mb-1 size-4 text-muted-foreground" />
+                  <p className="font-medium">{weather.feelsLike}°</p>
+                  <p className="text-xs text-muted-foreground">Feels like</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No weather data available</p>
+          )}
         </DashboardCard>
 
         <DashboardCard title="Air Quality" className="bg-gradient-to-br from-emerald-500/5 to-green-500/10">
-          <div className="text-center">
-            <p className={`text-5xl font-bold ${aqiColor}`}>{airQuality.aqi}</p>
-            <p className="mt-1 font-medium">{airQuality.level}</p>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-lg bg-background/50 p-3 text-center">
-              <Leaf className="mx-auto mb-1 size-4 text-emerald-500" />
-              <p className="font-medium">PM2.5</p>
-              <p className="text-muted-foreground">{airQuality.pm25}</p>
-            </div>
-            <div className="rounded-lg bg-background/50 p-3 text-center">
-              <Leaf className="mx-auto mb-1 size-4 text-emerald-500" />
-              <p className="font-medium">PM10</p>
-              <p className="text-muted-foreground">{airQuality.pm10}</p>
-            </div>
-          </div>
+          {airQuality ? (
+            <>
+              <div className="text-center">
+                <p className={`text-5xl font-bold ${aqiColor}`}>{airQuality.aqi}</p>
+                <p className="mt-1 font-medium">{airQuality.level}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-background/50 p-3 text-center">
+                  <Leaf className="mx-auto mb-1 size-4 text-emerald-500" />
+                  <p className="font-medium">PM2.5</p>
+                  <p className="text-muted-foreground">{airQuality.pm25}</p>
+                </div>
+                <div className="rounded-lg bg-background/50 p-3 text-center">
+                  <Leaf className="mx-auto mb-1 size-4 text-emerald-500" />
+                  <p className="font-medium">PM10</p>
+                  <p className="text-muted-foreground">{airQuality.pm10}</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No air quality data available</p>
+          )}
         </DashboardCard>
 
         <DashboardCard title="Prayer Times" className="sm:col-span-2 xl:col-span-1">
-          <div className="space-y-2">
-            {prayerTimes.map((prayer) => (
-              <div
-                key={prayer.name}
-                className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
-              >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <Clock className="size-3.5 text-muted-foreground" />
-                  {prayer.name}
-                </span>
-                <span className="text-sm tabular-nums">{prayer.time}</span>
-              </div>
-            ))}
-          </div>
+          {prayerTimes && prayerTimes.length > 0 ? (
+            <div className="space-y-2">
+              {prayerTimes.map((prayer) => (
+                <div
+                  key={prayer.name}
+                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Clock className="size-3.5 text-muted-foreground" />
+                    {prayer.name}
+                  </span>
+                  <span className="text-sm tabular-nums">{prayer.time}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No prayer times available</p>
+          )}
         </DashboardCard>
 
         <DashboardCard title="Overview" className="sm:col-span-2 xl:col-span-1">
@@ -121,15 +143,19 @@ export default function EnvironmentPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Updated</span>
+<<<<<<< HEAD
               <span className="font-medium">{formatUpdatedAt(updatedAt)}</span>
+=======
+              <span className="font-medium">{updatedAt ? formatDateTime(updatedAt) : "—"}</span>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Air Quality</span>
-              <span className={`font-medium ${aqiColor}`}>{airQuality.level}</span>
+              <span className={`font-medium ${aqiColor}`}>{airQuality?.level ?? "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Conditions</span>
-              <span className="font-medium capitalize">{weather.description}</span>
+              <span className="font-medium capitalize">{weather?.description ?? "—"}</span>
             </div>
           </div>
         </DashboardCard>

@@ -253,6 +253,7 @@ export default function UsersPage() {
             <SelectItem value="USER">User</SelectItem>
           </SelectContent>
         </Select>
+<<<<<<< HEAD
         <Select value={gender || "all"} onValueChange={(value) => {
           if (value === null) {
             return;
@@ -265,6 +266,9 @@ export default function UsersPage() {
           }
           setPage(1);
         }}>
+=======
+        <Select value={gender || "all"} onValueChange={(v) => { setGender((v ?? "") === "all" ? "" : (v as Gender)); setPage(1); }}>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Gender" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Genders</SelectItem>
@@ -273,6 +277,7 @@ export default function UsersPage() {
             ))}
           </SelectContent>
         </Select>
+<<<<<<< HEAD
         <Select value={verified || "all"} onValueChange={(value) => {
           if (value === null) {
             return;
@@ -281,6 +286,9 @@ export default function UsersPage() {
           setVerified(value === "all" ? "" : value);
           setPage(1);
         }}>
+=======
+        <Select value={verified || "all"} onValueChange={(v) => { setVerified(v === "all" ? "" : (v ?? "")); setPage(1); }}>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Verified" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -288,6 +296,7 @@ export default function UsersPage() {
             <SelectItem value="false">Unverified</SelectItem>
           </SelectContent>
         </Select>
+<<<<<<< HEAD
         <Select value={banned || "all"} onValueChange={(value) => {
           if (value === null) {
             return;
@@ -296,6 +305,9 @@ export default function UsersPage() {
           setBanned(value === "all" ? "" : value);
           setPage(1);
         }}>
+=======
+        <Select value={banned || "all"} onValueChange={(v) => { setBanned(v === "all" ? "" : (v ?? "")); setPage(1); }}>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Banned" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
@@ -303,6 +315,7 @@ export default function UsersPage() {
             <SelectItem value="false">Active</SelectItem>
           </SelectContent>
         </Select>
+<<<<<<< HEAD
         <Select value={deleted || "all"} onValueChange={(value) => {
           if (value === null) {
             return;
@@ -311,6 +324,9 @@ export default function UsersPage() {
           setDeleted(value === "all" ? "" : value);
           setPage(1);
         }}>
+=======
+        <Select value={deleted || "all"} onValueChange={(v) => { setDeleted(v === "all" ? "" : (v ?? "")); setPage(1); }}>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Deleted" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>

@@ -74,6 +74,7 @@ export interface NavItem {
   label: string;
   icon: string;
   roles?: UserRole[];
+
 }
 
 export const NAV_ITEMS: NavItem[] = [

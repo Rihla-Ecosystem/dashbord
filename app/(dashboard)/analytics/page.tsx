@@ -54,7 +54,11 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Analytics" description="Users, revenue, retention, and geographic trends">
+<<<<<<< HEAD
         <Select value={range} onValueChange={(value) => { if (value !== null) setRange(value); }}>
+=======
+        <Select value={range} onValueChange={(v) => { if (v) setRange(v); }}>
+>>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
           <SelectTrigger className="w-35 rounded-xl">
             <SelectValue />
           </SelectTrigger>
