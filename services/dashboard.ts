@@ -168,6 +168,17 @@ export const dashboardApi = {
     });
   },
 
+  // get roles
+  getRoles: async () => {
+    const { data } = await axiosInstance.get(`/users/roles`);
+    const envelope = (data ?? {}) as { data?: unknown };
+    const roles = Array.isArray(envelope.data) ? (envelope.data as Array<Record<string, unknown>>) : [];
+    return roles.map((role ) => ({
+      id : role.id,
+      name: role.name,
+    }));
+  } ,
+
   getUserStatistics: async (id: string) => {
     const { data } = await axiosInstance.get(`/dashboard/users/${id}/statistics`);
     const envelope = (data ?? {}) as { data?: unknown };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
-import { formatDate, formatXp, getInitials, formatNumber } from "@/utils";
+import { formatDate, formatXp, getInitials, formatNumber, isAdmin } from "@/utils";
 import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/services/api";
@@ -200,13 +200,18 @@ export default function UsersPage() {
   };
 
   const [roles , setRoles] = useState<{ id: number; name: string }[]>([]);
-  useQuery({
-    queryKey: QUERY_KEYS.roles,
-    queryFn: () => dashboardApi.getRoles(),
-    onSuccess: (data) => {
-      setRoles(data);
-    },
-  });
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const rolesData : { id: number; name: string }[]  = await dashboardApi.getRoles();
+        setRoles(rolesData);
+      } catch (error) {
+        console.error("Failed to fetch roles:", error);
+      }
+    };
+    fetchRoles();
+  }, []);
+  
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
@@ -569,9 +574,12 @@ export default function UsersPage() {
           <SelectTrigger className="h-9 w-32 rounded-xl"><SelectValue placeholder="Role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="ADMIN">Admin</SelectItem>
-            <SelectItem value="MODERATOR">Moderator</SelectItem>
-            <SelectItem value="USER">User</SelectItem>
+            {
+              roles.map((r) => (
+                <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+              ))
+            }
+         
           </SelectContent>
         </Select>
 

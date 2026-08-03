@@ -164,11 +164,8 @@ export default function UserDetailsPage({ params }: PageProps) {
     );
   if (error || !user) return <ErrorState onRetry={() => refetch()} />;
 
-<<<<<<< HEAD
-  const badgeList = badges ?? [];
-=======
+
   const badgeList = Array.isArray(badges) ? badges : [];
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
 
   return (
     <div className="space-y-6">
@@ -217,7 +214,7 @@ export default function UserDetailsPage({ params }: PageProps) {
           </DashboardCard>
 
           <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-            <DialogContent className="max-w-lg">
+            <DialogContent t className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl ">
               <DialogHeader>
                 <DialogTitle>Edit User Profile</DialogTitle>
                 <DialogDescription>Update user profile information</DialogDescription>

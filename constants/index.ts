@@ -42,6 +42,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 72;
 export const QUERY_KEYS = {
   profile: ["profile"] as const,
   dashboardUsers: (params?: unknown) => ["dashboard-users", params] as const,
+  roles : (params?: unknown) => ["roles", params] as const,
   dashboardUser: (id: string) => ["dashboard-user", id] as const,
   dashboardUserStats: (id: string) => ["dashboard-user-stats", id] as const,
   userBadges: (id: string) => ["user-badges", id] as const,
@@ -91,6 +92,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" },
+
 ];
 
 export const AUTH_ROUTES = [
@@ -115,4 +117,5 @@ export const PROTECTED_ROUTES = [
   "/audit-logs",
   "/settings",
   "/profile",
+
 ] as const;
