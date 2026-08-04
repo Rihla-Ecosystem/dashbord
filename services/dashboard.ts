@@ -162,9 +162,9 @@ export const dashboardApi = {
     return normalizeUser({
       ...basic,
       role: roleRecord?.name,
-      xp: record.xp,
-      level: record.level,
-      createdAt: basic.createdAt ?? record.createdAt,
+      xp: Number(record.xp),
+      level: Number(record.level),
+      createdAt: String(basic.createdAt ?? record.createdAt ?? ""),
     });
   },
 
@@ -173,9 +173,9 @@ export const dashboardApi = {
     const { data } = await axiosInstance.get(`/users/roles`);
     const envelope = (data ?? {}) as { data?: unknown };
     const roles = Array.isArray(envelope.data) ? (envelope.data as Array<Record<string, unknown>>) : [];
-    return roles.map((role ) => ({
-      id : role.id,
-      name: role.name,
+    return roles.map((role) => ({
+      id: Number(role.id),
+      name: String(role.name),
     }));
   } ,
 

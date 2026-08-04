@@ -96,24 +96,13 @@ export default function AuditLogsPage() {
         </div>
       </PageHeader>
 
-<<<<<<< HEAD
+
       <SearchBar
         value={search}
         onChange={setSearch}
         placeholder="Search logs..."
       />
-=======
-      <FilterBar>
-        <SearchBar
-          value={search}
-          onChange={(v) => {
-            setSearch(v);
-            debouncedSetSearch(v);
-          }}
-          placeholder="Search logs..."
-        />
-      </FilterBar>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+
 
       {view === "table" ? (
         <>

@@ -8,3 +8,6 @@ export { paymentsApi } from "./payments";
 export { tokenPackagesApi } from "./token-packages";
 export { tokenWalletsApi } from "./token-wallets";
 export { vectorDbApi } from "./vector-db";
+export { enterpriseApi } from "./enterprise";
+export { assistantApi } from "./assistant";
+export { geocontextApi } from "./geocontext";

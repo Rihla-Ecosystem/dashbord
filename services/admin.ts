@@ -1,5 +1,6 @@
 import { axiosInstance } from "./axios";
 import type {
+  ApiAuditLog,
   AuditLog,
   AuditLogsQueryParams,
   PaginatedResponse,
@@ -29,7 +30,7 @@ export const adminApi = {
     const logs = Array.isArray(data?.logs) ? (data.logs as unknown[]) : [];
     const pagination = (data?.pagination ?? {}) as Record<string, unknown>;
     return {
-      data: logs.map((item) => normalizeAuditLog(item)),
+      data: logs.map((item) => normalizeAuditLog(item as Partial<ApiAuditLog>)),
       total: typeof pagination.total === "number" ? pagination.total : logs.length,
       page: typeof pagination.page === "number" ? pagination.page : 1,
       limit: typeof pagination.limit === "number" ? pagination.limit : logs.length || 1,

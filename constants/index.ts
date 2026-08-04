@@ -73,6 +73,15 @@ export const QUERY_KEYS = {
   vectorPoints: (collectionName: string, params?: unknown) =>
     ["vector-points", collectionName, params] as const,
 
+  enterpriseOverview: ["enterprise-overview"] as const,
+  enterpriseSystemHealth: ["enterprise-system-health"] as const,
+  enterpriseEntityStats: ["enterprise-entity-stats"] as const,
+  enterpriseApiMonitoringSummary: ["enterprise-api-monitoring-summary"] as const,
+  enterpriseApiMonitoring: (params?: unknown) => ["enterprise-api-monitoring", params] as const,
+  enterpriseAiUsage: ["enterprise-ai-usage"] as const,
+  systemHealth: ["system-health"] as const,
+  adminAssistant: ["admin-assistant"] as const,
+
 } as const;
 
 export interface NavItem {
@@ -90,6 +99,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/roles", label: "Roles", icon: "roles", roles: ["ADMIN"] },
   { href: "/badges", label: "Badges", icon: "badges", roles: ["ADMIN", "MODERATOR"] },
   { href: "/geo", label: "Geo Services", icon: "geo" ,  roles: ["ADMIN", "MODERATOR"]},
+  { href: "/geocontext", label: "GeoContext", icon: "geocontext", roles: ["ADMIN", "MODERATOR"] },
   { href: "/environment", label: "Environment", icon: "environment" , roles: ["ADMIN", "MODERATOR"]},
   { href: "/vector-db", label: "Vector DB", icon: "vectorDb" , roles: ["ADMIN", "MODERATOR"]},
   { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
@@ -115,6 +125,7 @@ export const PROTECTED_ROUTES = [
   "/roles",
   "/badges",
   "/geo",
+  "/geocontext",
   "/environment",
   "/payments",
   "/token-packages",

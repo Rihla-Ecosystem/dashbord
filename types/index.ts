@@ -340,3 +340,149 @@ export interface ApiError {
   error?: string;
   details?: ApiErrorDetail[];
 }
+
+export type ServiceStatus = "online" | "offline" | "degraded" | "unknown";
+
+export interface ServiceHealth {
+  name: string;
+  status: ServiceStatus;
+  latencyMs: number | null;
+  error?: string | null;
+  version?: string;
+}
+
+export interface SystemHealth {
+  status: "ok" | "degraded" | "down";
+  time?: string;
+  responseTimeMs?: number;
+  uptimeSeconds?: number;
+  version?: string;
+  database?: {
+    name?: string;
+    status: "online" | "offline";
+    error?: string | null;
+  };
+  services?: ServiceHealth[];
+}
+
+export interface PlatformOverview {
+  users?: {
+    total: number;
+    totalXp?: number;
+    averageLevel?: number;
+    maxLevel?: number;
+    activeSessions?: number;
+  };
+  payments?: {
+    total: number;
+    totalRevenue: number;
+    byStatus?: Record<string, { count: number; total: number }>;
+  };
+  tokens?: {
+    totalTokens: number;
+    totalTransactions: number;
+    walletBalance: number;
+    walletCount: number;
+  };
+  content?: {
+    badges: number;
+    journeys: number;
+    trips: number;
+    conversations: number;
+    messages: number;
+    transactions: number;
+    auditLogs: number;
+    notifications: number;
+  };
+}
+
+export interface EntityStatistics {
+  roles: number;
+  badges: number;
+  journeys: number;
+  trips: number;
+  conversations: number;
+  transactions: number;
+  payments: number;
+  tokenPackages: number;
+  notifications: number;
+}
+
+export interface ApiMonitoringSummary {
+  totalRequests: number;
+  errors: number;
+  successRate: number;
+  averageResponseTimeMs: number;
+  byStatus?: Record<string, number>;
+  byMethod?: Record<string, number>;
+}
+
+export interface ApiMonitoringLogEntry {
+  id: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  durationMs: number;
+  userId: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  timestamp: string;
+}
+
+export interface AiUsageSummary {
+  summary: {
+    totalCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+  };
+  daily: Array<{
+    day: string;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+    calls: number;
+  }>;
+  perUser: Array<{
+    user: { id: string; displayName?: string | null; email?: string | null };
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+  }>;
+  perModel: Array<{
+    model: string;
+    source: string;
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+  }>;
+  recent: Array<{
+    id: string;
+    user: { displayName?: string | null; email?: string | null } | null;
+    source: string;
+    model: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    cost: number;
+    createdAt: string;
+  }>;
+}
+
+export interface VectorCollection {
+  name: string;
+  points_count: number;
+  vectors_size: number;
+}
+
+export interface AdminAssistantResponse {
+  answer: string;
+  blocked?: boolean;
+  reason?: string;
+}

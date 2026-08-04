@@ -744,7 +744,7 @@ export default function UsersPage() {
         onConfirm={() => {
           if (deleteTarget) {
             deleteUser?.mutate(
-              { id: deleteTarget.id },
+              deleteTarget.id,
               { onSuccess: () => setDeleteTarget(null) }
             );
 

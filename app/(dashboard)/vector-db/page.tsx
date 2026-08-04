@@ -165,7 +165,7 @@ export default function VectorDbPage() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <span className="text-sm font-medium" htmlFor="upload-file">File</span>
+                <label className="text-sm font-medium" htmlFor="upload-file">File</label>
                 <Input
                   id="upload-file"
                   type="file"
@@ -174,7 +174,7 @@ export default function VectorDbPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <span className="text-sm font-medium" htmlFor="upload-category">Category</span>
+                <label className="text-sm font-medium" htmlFor="upload-category">Category</label>
                 <Input
                   id="upload-category"
                   value={uploadCategory}
@@ -183,7 +183,7 @@ export default function VectorDbPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <span className="text-sm font-medium" htmlFor="upload-collection">Collection (optional)</span>
+                <label className="text-sm font-medium" htmlFor="upload-collection">Collection (optional)</label>
                 <Input
                   id="upload-collection"
                   value={uploadCollection}

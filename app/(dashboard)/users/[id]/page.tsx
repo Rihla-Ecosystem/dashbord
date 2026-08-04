@@ -214,7 +214,7 @@ export default function UserDetailsPage({ params }: PageProps) {
           </DashboardCard>
 
           <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-            <DialogContent t className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl ">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl ">
               <DialogHeader>
                 <DialogTitle>Edit User Profile</DialogTitle>
                 <DialogDescription>Update user profile information</DialogDescription>
