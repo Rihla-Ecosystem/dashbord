@@ -28,7 +28,7 @@ import { nearbyServiceMeta, NEARBY_SERVICE_TYPES } from "@/constants/geocontext"
 import { useAddNearbyService, useDeleteGeoWarning, useDeleteNearbyService, useSetGeoLocationStatus } from "@/hooks/useGeocontext";
 import { formatDate, formatRelative } from "@/utils";
 import { getErrorMessage } from "@/utils";
-import type { GeoLocation, NearbyService, NearbyServiceType } from "@/types/geocontext";
+import type { GeoLocation, LocationWarning, NearbyService, NearbyServiceType } from "@/types/geocontext";
 import { cn } from "@/lib/utils";
 
 type Tab = "profile" | "tourism" | "warnings" | "nearby" | "history";
@@ -70,6 +70,39 @@ function SafetyRing({ score }: { score: number }) {
           {score}
         </p>
         <p className="text-[10px] uppercase tracking-wide text-muted-foreground">safety</p>
+      </div>
+    </div>
+  );
+}
+
+function WarningRow({ warning, locationId, canEdit }: { warning: LocationWarning; locationId: string; canEdit: boolean }) {
+  const deleteMutation = useDeleteGeoWarning(locationId, warning.id);
+  return (
+    <div className="rounded-xl border border-border/50 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold">{warning.title}</p>
+            <SeverityBadge severity={warning.severity} />
+            {warning.active ? <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs">Inactive</span>}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{warning.description}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {warning.category.replace("_", " ")} · added {formatRelative(warning.createdAt)}
+            {warning.expiresAt ? ` · expires ${formatDate(warning.expiresAt)}` : ""}
+          </p>
+        </div>
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => deleteMutation.mutate(undefined, { onSuccess: () => toast.success("Warning removed") })}
+            disabled={deleteMutation.isPending}
+            aria-label="Remove warning"
+          >
+            <Trash2 className="size-3.5 text-destructive" />
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -127,7 +160,6 @@ export function LocationDetailsPanel({
   const [serviceDistance, setServiceDistance] = useState("0.5");
   const addServiceMutation = useAddNearbyService(location.id);
   const statusMutation = useSetGeoLocationStatus(location.id);
-  const deleteWarningMutation = useDeleteGeoWarning(location.id, "");
 
   const addService = () => {
     const distance = Number.parseFloat(serviceDistance);
@@ -154,12 +186,6 @@ export function LocationDetailsPanel({
     statusMutation.mutate(next, {
       onSuccess: () => toast.success(`"${location.nameEn}" ${next === "published" ? "published" : "unpublished"}`),
       onError: (error) => toast.error(getErrorMessage(error)),
-    });
-  };
-
-  const removeWarning = () => {
-    deleteWarningMutation.mutate(undefined, {
-      onSuccess: () => toast.success("Warning removed"),
     });
   };
 
@@ -341,27 +367,7 @@ export function LocationDetailsPanel({
               </p>
             )}
             {location.warnings.map((warning) => (
-              <div key={warning.id} className="rounded-xl border border-border/50 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold">{warning.title}</p>
-                      <SeverityBadge severity={warning.severity} />
-                      {warning.active ? <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span> : <span className="rounded-full bg-muted px-2 py-0.5 text-xs">Inactive</span>}
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{warning.description}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {warning.category.replace("_", " ")} · added {formatRelative(warning.createdAt)}
-                      {warning.expiresAt ? ` · expires ${formatDate(warning.expiresAt)}` : ""}
-                    </p>
-                  </div>
-                  {canEdit && (
-                    <Button variant="ghost" size="icon-xs" onClick={removeWarning} disabled={deleteWarningMutation.isPending} aria-label="Remove warning">
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <WarningRow key={warning.id} warning={warning} locationId={location.id} canEdit={canEdit} />
             ))}
           </>
         )}
