@@ -9,6 +9,31 @@ import type {
 
 export const DEFAULT_MAP_CENTER = { lat: 26.820553, lng: 30.802498 };
 export const DEFAULT_MAP_ZOOM = 6;
+export const EGYPT_MIN_ZOOM = 5;
+export const EGYPT_MAX_ZOOM = 13;
+export const EGYPT_BBOX: [[number, number], [number, number]] = [
+  [21.9, 24.7],
+  [31.7, 35.6],
+];
+
+export interface WeatherCity {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+export const EGYPT_WEATHER_CITIES: WeatherCity[] = [
+  { name: "Cairo", lat: 30.0444, lng: 31.2357 },
+  { name: "Alexandria", lat: 31.2001, lng: 29.9187 },
+  { name: "Giza", lat: 30.015, lng: 31.1417 },
+  { name: "Luxor", lat: 25.6872, lng: 32.6396 },
+  { name: "Aswan", lat: 24.0889, lng: 32.8998 },
+  { name: "Hurghada", lat: 27.2579, lng: 33.8116 },
+  { name: "Sharm El-Sheikh", lat: 27.9158, lng: 34.33 },
+  { name: "Marsa Matruh", lat: 27.7326, lng: 26.2375 },
+  { name: "Tanta", lat: 31.4692, lng: 30.7787 },
+  { name: "Mansoura", lat: 31.0367, lng: 31.3525 },
+];
 
 export interface CategoryOption {
   value: LocationCategory;

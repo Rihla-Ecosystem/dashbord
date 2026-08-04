@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import L from "leaflet";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Polygon,
-  Polyline,
   Popup,
   CircleMarker,
   useMap,
@@ -17,12 +17,12 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import { useTheme } from "next-themes";
 import {
   Compass,
+  CloudSun,
   Expand,
   LocateFixed,
   Maximize2,
   Sparkles,
   Wind,
-  CloudSun,
   ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,14 @@ import {
   categoryMeta,
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
+  EGYPT_BBOX,
+  EGYPT_MAX_ZOOM,
+  EGYPT_MIN_ZOOM,
+  EGYPT_WEATHER_CITIES,
   severityMeta,
   TILE_URLS,
 } from "@/constants/geocontext";
+import { fetchWeather, weatherDescription } from "./weather";
 import { RiskHeatLayer, type HeatPoint } from "./map/heat-layer";
 import type { Boundary, GeoCoordinates, GeoLocation, RestrictedZone } from "@/types/geocontext";
 
@@ -58,30 +63,6 @@ export interface GeoContextMapProps {
   onPolygonDrawn: (coords: GeoCoordinates[]) => void;
   className?: string;
 }
-
-const WEATHER_STATIONS: Array<{ city: string; lat: number; lng: number; temp: number; condition: string }> = [
-  { city: "Cairo", lat: 30.0444, lng: 31.2357, temp: 29, condition: "Partly cloudy" },
-  { city: "Alexandria", lat: 31.2001, lng: 29.9187, temp: 26, condition: "Clear" },
-  { city: "Luxor", lat: 25.6872, lng: 32.6396, temp: 38, condition: "Sunny" },
-  { city: "Aswan", lat: 24.0889, lng: 32.8998, temp: 40, condition: "Sunny" },
-  { city: "Hurghada", lat: 27.2579, lng: 33.8116, temp: 33, condition: "Clear" },
-  { city: "Sharm El-Sheikh", lat: 27.9158, lng: 34.33, temp: 32, condition: "Clear" },
-];
-
-const TRAFFIC_ROUTES: Array<[number, number][]> = [
-  [
-    [30.0444, 31.2357],
-    [30.0525, 31.275],
-  ],
-  [
-    [29.99, 31.2],
-    [30.03, 31.24],
-  ],
-  [
-    [30.08, 31.3],
-    [30.06, 31.34],
-  ],
-];
 
 function pinIcon(color: string, selected: boolean, warning: boolean): L.DivIcon {
   const size = selected ? 40 : 30;
@@ -281,6 +262,53 @@ function HeatLayerComponent({ points }: { points: HeatPoint[] }) {
   return null;
 }
 
+function useCityWeather() {
+  return useQuery({
+    queryKey: ["geocontext", "weather", "egypt"],
+    queryFn: async () => {
+      const results = await Promise.all(
+        EGYPT_WEATHER_CITIES.map(async (city) => {
+          const w = await fetchWeather(city.lat, city.lng);
+          return w ? { city: city.name, lat: city.lat, lng: city.lng, ...w } : null;
+        })
+      );
+      return results.filter((r): r is NonNullable<typeof r> => !!r);
+    },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: [],
+  });
+}
+
+function WeatherLayer() {
+  const { data: readings } = useCityWeather();
+  if (!readings?.length) return null;
+  return (
+    <>
+      {readings.map((r) => (
+        <CircleMarker
+          key={r.city}
+          center={[r.lat, r.lng]}
+          radius={9}
+          pathOptions={{ color: "#0284c7", fillColor: "#38bdf8", fillOpacity: 0.85 }}
+        >
+          <Popup>
+            <div className="flex items-center gap-2 text-sm">
+              <CloudSun className="size-4 text-sky-500" />
+              <div>
+                <p className="font-semibold">{r.city}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.temperature.toFixed(1)}°C · {weatherDescription(r.weatherCode)} · {r.windSpeed.toFixed(1)} km/h
+                </p>
+              </div>
+            </div>
+          </Popup>
+        </CircleMarker>
+      ))}
+    </>
+  );
+}
+
 function MapTools() {
   const map = useMap();
   const [locating, setLocating] = useState(false);
@@ -389,6 +417,10 @@ export function GeoContextMap({
       <MapContainer
         center={[DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng]}
         zoom={DEFAULT_MAP_ZOOM}
+        minZoom={EGYPT_MIN_ZOOM}
+        maxZoom={EGYPT_MAX_ZOOM}
+        maxBounds={EGYPT_BBOX}
+        maxBoundsViscosity={0.9}
         scrollWheelZoom
         zoomControl
         attributionControl
@@ -430,38 +462,19 @@ export function GeoContextMap({
           );
         })}
 
-        {visibleLayers.weather_layer &&
-          WEATHER_STATIONS.map((station) => (
-            <CircleMarker
-              key={station.city}
-              center={[station.lat, station.lng]}
-              radius={10}
-              pathOptions={{ color: "#0284c7", fillColor: "#38bdf8", fillOpacity: 0.5 }}
-            >
-              <Popup>
-                <div className="flex items-center gap-2 text-sm">
-                  <CloudSun className="size-4 text-sky-500" />
-                  <div>
-                    <p className="font-semibold">{station.city}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {station.temp}°C · {station.condition}
-                    </p>
-                  </div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
+        {visibleLayers.weather_layer && <WeatherLayer />}
 
-        {visibleLayers.traffic_layer &&
-          TRAFFIC_ROUTES.map((route, i) => (
-            <Polyline key={`traffic-${i}`} positions={route} pathOptions={{ color: "#0b6f6b", weight: 4, opacity: 0.55 }} />
-          ))}
+        {visibleLayers.traffic_layer && (
+          <div className="leaflet-control absolute bottom-16 right-3 z-[500] max-w-xs rounded-xl border border-border/50 bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-md backdrop-blur">
+            Traffic layer is not yet connected to a live traffic provider.
+          </div>
+        )}
 
         {visibleLayers.ai_recommendations &&
           aiLocations.map((l) => (
             <Marker
               key={`ai-${l.id}`}
-              position={[l.lat - 0.02, l.lng + 0.02]}
+              position={[l.lat, l.lng]}
               icon={L.divIcon({
                 className: "",
                 html: `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#8b5cf6;color:#fff;border-radius:9999px;box-shadow:0 1px 3px rgba(0,0,0,.4)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1"/></svg></div>`,

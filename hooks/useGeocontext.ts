@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { geocontextApi, type LocationQuery, type PaginatedLocations } from "@/services/geocontext";
 import { GEO_QUERY_KEYS } from "@/constants/geocontext";
+import { fetchWeather } from "@/features/geocontext/weather";
 import type {
   GeoJSONFeatureCollection,
   GeoLocation,
@@ -309,5 +310,15 @@ export function useImportGeoJSON() {
       qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
       qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
     },
+  });
+}
+
+export function useWeather(lat: number, lng: number, enabled = true) {
+  return useQuery({
+    queryKey: ["geocontext", "weather", lat, lng],
+    queryFn: () => fetchWeather(lat, lng),
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    enabled: enabled && Number.isFinite(lat) && Number.isFinite(lng),
   });
 }
