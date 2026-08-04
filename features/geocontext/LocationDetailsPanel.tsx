@@ -24,11 +24,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CategoryBadge, RiskBadge, SeverityBadge, StatusBadge } from "./badges";
-import { nearbyServiceMeta } from "@/constants/geocontext";
-import { useDeleteGeoWarning, useSetGeoLocationStatus } from "@/hooks/useGeocontext";
+import { nearbyServiceMeta, NEARBY_SERVICE_TYPES } from "@/constants/geocontext";
+import { useAddNearbyService, useDeleteGeoWarning, useDeleteNearbyService, useSetGeoLocationStatus } from "@/hooks/useGeocontext";
 import { formatDate, formatRelative } from "@/utils";
 import { getErrorMessage } from "@/utils";
-import type { GeoLocation } from "@/types/geocontext";
+import type { GeoLocation, NearbyService, NearbyServiceType } from "@/types/geocontext";
 import { cn } from "@/lib/utils";
 
 type Tab = "profile" | "tourism" | "warnings" | "nearby" | "history";
@@ -75,6 +75,41 @@ function SafetyRing({ score }: { score: number }) {
   );
 }
 
+function NearbyRow({ service, canEdit }: { service: NearbyService; canEdit: boolean }) {
+  const meta = nearbyServiceMeta(service.type);
+  const deleteMutation = useDeleteNearbyService(service.locationId, service.id);
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-border/50 px-3 py-2.5">
+      <div className="flex items-center gap-2.5">
+        <span className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
+          <MapPin className="size-4" />
+        </span>
+        <div>
+          <p className="text-sm font-medium">{meta.label}</p>
+          <p className="text-xs text-muted-foreground">{service.name}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="text-right">
+          <p className="text-sm font-semibold">{service.distanceKm.toFixed(1)} km</p>
+          {service.rating !== undefined && <p className="text-xs text-muted-foreground">★ {service.rating}</p>}
+        </div>
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => deleteMutation.mutate(undefined, { onSuccess: () => toast.success("Service removed") })}
+            disabled={deleteMutation.isPending}
+            aria-label="Remove service"
+          >
+            <Trash2 className="size-3.5 text-destructive" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function LocationDetailsPanel({
   location,
   onEdit,
@@ -86,8 +121,33 @@ export function LocationDetailsPanel({
 }: LocationDetailsPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showAddService, setShowAddService] = useState(false);
+  const [serviceName, setServiceName] = useState("");
+  const [serviceType, setServiceType] = useState<NearbyServiceType>("hotel");
+  const [serviceDistance, setServiceDistance] = useState("0.5");
+  const addServiceMutation = useAddNearbyService(location.id);
   const statusMutation = useSetGeoLocationStatus(location.id);
   const deleteWarningMutation = useDeleteGeoWarning(location.id, "");
+
+  const addService = () => {
+    const distance = Number.parseFloat(serviceDistance);
+    if (!serviceName.trim() || Number.isNaN(distance) || distance < 0) {
+      toast.error("Enter a valid name and distance");
+      return;
+    }
+    addServiceMutation.mutate(
+      { name: serviceName.trim(), type: serviceType, distanceKm: distance },
+      {
+        onSuccess: () => {
+          toast.success(`"${serviceName.trim()}" added to nearby services`);
+          setServiceName("");
+          setServiceDistance("0.5");
+          setShowAddService(false);
+        },
+        onError: (error) => toast.error(getErrorMessage(error)),
+      }
+    );
+  };
 
   const toggleStatus = () => {
     const next = location.status === "published" ? "unpublished" : "published";
@@ -308,31 +368,59 @@ export function LocationDetailsPanel({
 
         {tab === "nearby" && (
           <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">Nearby services ({location.nearby.length})</h4>
+              {canEdit && (
+                <Button variant="outline" size="sm" onClick={() => setShowAddService((v) => !v)}>
+                  <Plus className="size-4" /> Add service
+                </Button>
+              )}
+            </div>
+
+            {showAddService && (
+              <div className="space-y-2 rounded-xl border border-border/50 bg-muted/30 p-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={serviceName}
+                    onChange={(e) => setServiceName(e.target.value)}
+                    placeholder="Service name"
+                    className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={serviceType}
+                    onChange={(e) => setServiceType(e.target.value as NearbyServiceType)}
+                    className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring"
+                  >
+                    {NEARBY_SERVICE_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={serviceDistance}
+                    onChange={(e) => setServiceDistance(e.target.value)}
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="km"
+                    className="h-8 w-20 rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-ring"
+                  />
+                  <Button size="sm" onClick={addService} disabled={addServiceMutation.isPending}>
+                    {addServiceMutation.isPending ? "Adding…" : "Add"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {location.nearby.length === 0 && (
               <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                 No nearby services recorded.
               </p>
             )}
-            {location.nearby.map((service) => {
-              const meta = nearbyServiceMeta(service.type);
-              return (
-                <div key={service.id} className="flex items-center justify-between rounded-xl border border-border/50 px-3 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
-                      <MapPin className="size-4" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium capitalize">{service.type.replace("_", " ")}</p>
-                      <p className="text-xs text-muted-foreground">{service.name}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">{service.distanceKm.toFixed(1)} km</p>
-                    {service.rating !== undefined && <p className="text-xs text-muted-foreground">★ {service.rating}</p>}
-                  </div>
-                </div>
-              );
-            })}
+            {location.nearby.map((service) => (
+              <NearbyRow key={service.id} service={service} canEdit={canEdit} />
+            ))}
           </div>
         )}
 

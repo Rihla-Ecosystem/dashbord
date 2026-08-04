@@ -497,7 +497,7 @@ function GeoContextContent() {
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button size="icon-sm" variant="ghost" onClick={() => setZoneDialog({ open: true, zone, polygon: [] })} disabled={!canEdit} title="Edit zone">
+                          <Button size="icon-sm" variant="ghost" onClick={() => setZoneDialog({ open: true, zone, polygon: zone.polygon })} disabled={!canEdit} title="Edit zone">
                             <Edit3Icon className="size-4" />
                           </Button>
                           <Button size="icon-sm" variant="ghost" onClick={() => setDeleteTarget({ kind: "zone", name: zone.name, id: zone.id })} disabled={!canDelete} title="Delete zone">

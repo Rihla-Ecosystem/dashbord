@@ -8,6 +8,7 @@ import type {
   GeoLocation,
   LocationInput,
   LocationWarning,
+  NearbyServiceInput,
   RestrictedZone,
 } from "@/types/geocontext";
 
@@ -151,6 +152,52 @@ export function useAddGeoWarning(locationId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
       qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
+export function useAddNearbyService(locationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NearbyServiceInput) => geocontextApi.addNearbyService(locationId, input),
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: ["geocontext", "locations"] });
+      const temp = {
+        id: `temp-ns-${Date.now()}`,
+        locationId,
+        name: input.name,
+        type: input.type,
+        distanceKm: input.distanceKm,
+        lat: 0,
+        lng: 0,
+        rating: input.rating,
+        contact: input.contact,
+      };
+      const existing = qc.getQueryData<GeoLocation>(GEO_QUERY_KEYS.location(locationId));
+      patchLocationCache(qc, locationId, { nearby: [...(existing?.nearby ?? []), temp] });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
+export function useDeleteNearbyService(locationId: string, serviceId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => geocontextApi.deleteNearbyService(locationId, serviceId),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["geocontext", "locations"] });
+      patchLocationCache(qc, locationId, {
+        nearby: (qc.getQueryData<GeoLocation>(GEO_QUERY_KEYS.location(locationId))?.nearby ?? []).filter(
+          (s) => s.id !== serviceId
+        ),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
       qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
     },
   });

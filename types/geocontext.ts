@@ -116,6 +116,14 @@ export interface NearbyService {
   contact?: string;
 }
 
+export interface NearbyServiceInput {
+  name: string;
+  type: NearbyServiceType;
+  distanceKm: number;
+  rating?: number;
+  contact?: string;
+}
+
 export interface LocationImage {
   id: string;
   url: string;

@@ -18,6 +18,8 @@ import type {
   GeoSort,
   LocationInput,
   LocationWarning,
+  NearbyService,
+  NearbyServiceInput,
   RestrictedZone,
 } from "@/types/geocontext";
 
@@ -427,5 +429,40 @@ export const geocontextApi = {
     }
     const { data } = await axiosInstance.get<unknown>(`/geocontext/nearby-services${buildQueryString({ locationId })}`);
     return unwrapEnvelope<GeoLocation["nearby"]>(data);
+  },
+
+  async addNearbyService(locationId: string, input: NearbyServiceInput): Promise<NearbyService> {
+    if (await detectMockMode()) {
+      const loc = getStore().locations.find((l) => l.id === locationId);
+      if (!loc) throw new Error("Location not found");
+      const service: NearbyService = {
+        id: `ns-${Date.now()}`,
+        locationId,
+        name: input.name,
+        type: input.type,
+        distanceKm: input.distanceKm,
+        lat: loc.lat,
+        lng: loc.lng,
+        rating: input.rating,
+        contact: input.contact,
+      };
+      loc.nearby.push(service);
+      pushActivity("location", "location.nearby_service_added", service.name, locationId);
+      return service;
+    }
+    const { data } = await axiosInstance.post<unknown>(`/geocontext/locations/${locationId}/nearby-services`, input);
+    return unwrapEnvelope<NearbyService>(data);
+  },
+
+  async deleteNearbyService(locationId: string, serviceId: string): Promise<void> {
+    if (await detectMockMode()) {
+      const loc = getStore().locations.find((l) => l.id === locationId);
+      if (!loc) return;
+      const service = loc.nearby.find((s) => s.id === serviceId);
+      loc.nearby = loc.nearby.filter((s) => s.id !== serviceId);
+      if (service) pushActivity("location", "location.nearby_service_removed", service.name, locationId);
+      return;
+    }
+    await axiosInstance.delete(`/geocontext/locations/${locationId}/nearby-services/${serviceId}`);
   },
 };
