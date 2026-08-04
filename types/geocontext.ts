@@ -192,6 +192,26 @@ export interface ContactInfo {
   googleMapsUrl?: string;
 }
 
+export interface LocationDocument {
+  id: string;
+  title: string;
+  url: string;
+  kind?: string;
+}
+
+export interface LocationAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type?: string;
+}
+
+export interface ExternalLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
 export interface GeoLocation {
   id: string;
   nameAr: string;
@@ -240,6 +260,11 @@ export interface GeoLocation {
   relatedLocationIds: string[];
   customMetadata: Record<string, string>;
   nearby: NearbyService[];
+  localLaws?: string;
+  notes?: string;
+  documents: LocationDocument[];
+  attachments: LocationAttachment[];
+  externalLinks: ExternalLink[];
 }
 
 export type LocationInput = Pick<
@@ -273,6 +298,11 @@ export type LocationInput = Pick<
   | "contact"
   | "visibility"
   | "customMetadata"
+  | "localLaws"
+  | "notes"
+  | "documents"
+  | "attachments"
+  | "externalLinks"
 >;
 
 export interface GeoAnalytics {

@@ -259,6 +259,11 @@ function seedLocation(seed: SeedLocation, index: number): GeoLocation {
     relatedLocationIds: [],
     customMetadata: {},
     nearby: makeNearby(id),
+    localLaws: "Respect local customs and regulations. Follow the guidance of site officials.",
+    notes: "Coordinate with the Ministry of Tourism for any commercial filming.",
+    documents: [{ id: uid("doc"), title: "Visitor guide", url: "https://example.com/guide.pdf", kind: "pdf" }],
+    attachments: [{ id: uid("att"), name: "Site plan", url: "https://example.com/site-plan.pdf", type: "pdf" }],
+    externalLinks: [{ id: uid("link"), label: "Official website", url: "https://example.com" }],
   };
 }
 
@@ -494,5 +499,10 @@ export function createMockLocation(input: LocationInput): GeoLocation {
     relatedLocationIds: [],
     customMetadata: input.customMetadata ?? {},
     nearby: [],
+    localLaws: input.localLaws ?? "",
+    notes: input.notes ?? "",
+    documents: input.documents ?? [],
+    attachments: input.attachments ?? [],
+    externalLinks: input.externalLinks ?? [],
   };
 }

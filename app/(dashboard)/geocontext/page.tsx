@@ -7,6 +7,7 @@ import {
   Download,
   FileUp,
   Landmark,
+  ListChecks,
   MapPinPlus,
   PauseCircle,
   PlayCircle,
@@ -59,6 +60,8 @@ import {
   useSetGeoLocationStatus,
   useDeleteRestrictedZone,
   useImportGeoJSON,
+  useBulkGeoLocationStatus,
+  useBulkDeleteGeoLocations,
 } from "@/hooks/useGeocontext";
 import dynamic from "next/dynamic";
 import type { MapDrawMode } from "@/features/geocontext/GeoContextMap";
@@ -153,6 +156,7 @@ function GeoContextContent() {
     polygon: [],
   });
   const [deleteTarget, setDeleteTarget] = useState<{ kind: "location" | "zone"; name: string; id: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -165,12 +169,17 @@ function GeoContextContent() {
   const deleteLocationMutation = useDeleteGeoLocation();
   const deleteZoneMutation = useDeleteRestrictedZone();
   const importGeoJSONMutation = useImportGeoJSON();
+  const bulkStatusMutation = useBulkGeoLocationStatus();
+  const bulkDeleteMutation = useBulkDeleteGeoLocations();
   const queryClient = useQueryClient();
+
+  const hasSelection = selectedIds.size > 0;
 
   const locations = useMemo(() => locationsQuery.data?.data ?? [], [locationsQuery.data]);
   const selectedLocation = selectedLocationId
     ? (locations.find((l) => l.id === selectedLocationId) ?? null)
     : null;
+  const selectedLocations = locations.filter((l) => selectedIds.has(l.id));
 
   const heatPoints = useMemo(() => {
     return makeHeatPoints(
@@ -261,6 +270,38 @@ function GeoContextContent() {
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
+  };
+
+  const handleBulkStatus = (status: "published" | "unpublished" | "draft") => {
+    if (!hasSelection) return;
+    bulkStatusMutation.mutate(
+      { ids: [...selectedIds], status },
+      {
+        onSuccess: (result) => {
+          toast.success(`Published state set for ${result.updated} location(s)`);
+          setSelectedIds(new Set());
+        },
+        onError: (error) => toast.error(getErrorMessage(error)),
+      }
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (!hasSelection) return;
+    bulkDeleteMutation.mutate([...selectedIds], {
+      onSuccess: (result) => {
+        toast.success(`Deleted ${result.deleted} location(s)`);
+        setSelectedIds(new Set());
+      },
+      onError: (error) => toast.error(getErrorMessage(error)),
+    });
+  };
+
+  const handleBulkExport = () => {
+    if (!selectedLocations.length) return;
+    const fc = locationsToFeatureCollection(selectedLocations);
+    downloadFile("geocontext-selection.geojson", JSON.stringify(fc, null, 2));
+    toast.success(`Exported ${selectedLocations.length} selected location(s)`);
   };
 
   return (
@@ -411,6 +452,7 @@ function GeoContextContent() {
           {selectedLocation ? (
             <LocationDetailsPanel
               location={selectedLocation}
+              allLocations={locations}
               onEdit={() => setLocationDialog({ open: true, location: selectedLocation, initialCoords: null, reverse: null })}
               onAddWarning={() => setWarningDialog({ open: true, locationId: selectedLocation.id, locationName: selectedLocation.nameEn })}
               onDelete={() => setDeleteTarget({ kind: "location", name: selectedLocation.nameEn, id: selectedLocation.id })}
@@ -433,6 +475,38 @@ function GeoContextContent() {
           />
         ) : (
           <>
+            {hasSelection && (
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <ListChecks className="size-4 text-primary" />
+                  {selectedIds.size} selected
+                </span>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("published")} disabled={bulkStatusMutation.isPending}>
+                    <PlayCircle className="size-4 text-emerald-500" />
+                    Publish
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("draft")} disabled={bulkStatusMutation.isPending}>
+                    Set draft
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("unpublished")} disabled={bulkStatusMutation.isPending}>
+                    <PauseCircle className="size-4 text-amber-500" />
+                    Unpublish
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleBulkExport}>
+                    <Download className="size-4" />
+                    Export
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteMutation.isPending}>
+                    <Trash2 className="size-4" />
+                    Delete
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            )}
             <LocationTable
               locations={locations}
               isLoading={locationsQuery.isLoading}
@@ -443,6 +517,8 @@ function GeoContextContent() {
               renderPublishToggle={(location) => <PublishButton location={location} canEdit={canEdit} />}
               canEdit={canEdit}
               canDelete={canDelete}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
             />
             <Pagination
               page={page}

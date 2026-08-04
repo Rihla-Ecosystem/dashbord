@@ -57,6 +57,12 @@ interface FormValues {
   website: string;
   googleMapsUrl: string;
   images: string;
+  localLaws: string;
+  notes: string;
+  documents: string;
+  attachments: string;
+  externalLinks: string;
+  customMetadata: string;
 }
 
 const EMPTY: FormValues = {
@@ -94,6 +100,12 @@ const EMPTY: FormValues = {
   website: "",
   googleMapsUrl: "",
   images: "",
+  localLaws: "",
+  notes: "",
+  documents: "",
+  attachments: "",
+  externalLinks: "",
+  customMetadata: "",
 };
 
 interface LocationFormDialogProps {
@@ -111,9 +123,48 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
+function splitLines(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function splitPairs(value: string): { title: string; url: string }[] {
+  return splitLines(value).flatMap((line) => {
+    const idx = line.indexOf("=");
+    if (idx === -1) return [];
+    const title = line.slice(0, idx).trim();
+    const url = line.slice(idx + 1).trim();
+    return title && url ? [{ title, url }] : [];
+  });
+}
+
+function splitMetadata(value: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of splitLines(value)) {
+    const idx = line.indexOf("=");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    const val = line.slice(idx + 1).trim();
+    if (key) out[key] = val;
+  }
+  return out;
+}
+
+function joinPairs(items: { title: string; url: string }[]): string {
+  return items.map((item) => `${item.title} = ${item.url}`).join("\n");
+}
+
+function joinMetadata(items: Record<string, string>): string {
+  return Object.entries(items)
+    .map(([key, value]) => `${key} = ${value}`)
+    .join("\n");
+}
+
 export function LocationFormDialog({ open, onOpenChange, location, initialCoords, reverse }: LocationFormDialogProps) {
   const isEdit = !!location;
-  const [tab, setTab] = useState<"general" | "tourism">("general");
+  const [tab, setTab] = useState<"general" | "tourism" | "cms">("general");
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -160,6 +211,12 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
         website: location.contact.website ?? "",
         googleMapsUrl: location.contact.googleMapsUrl ?? "",
         images: location.images.map((img) => img.url).join(", "),
+        localLaws: location.localLaws ?? "",
+        notes: location.notes ?? "",
+        documents: joinPairs(location.documents),
+        attachments: location.attachments.map((a) => `${a.name} = ${a.url}`).join("\n"),
+        externalLinks: location.externalLinks.map((l) => `${l.label} = ${l.url}`).join("\n"),
+        customMetadata: joinMetadata(location.customMetadata),
       });
     } else if (open) {
       setValues({
@@ -236,7 +293,24 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
         website: values.website.trim() || undefined,
         googleMapsUrl: values.googleMapsUrl.trim() || undefined,
       },
-      customMetadata: {},
+      customMetadata: splitMetadata(values.customMetadata),
+      localLaws: values.localLaws.trim() || undefined,
+      notes: values.notes.trim() || undefined,
+      documents: splitPairs(values.documents).map((d) => ({
+        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        title: d.title,
+        url: d.url,
+      })),
+      attachments: splitPairs(values.attachments).map((a) => ({
+        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: a.title,
+        url: a.url,
+      })),
+      externalLinks: splitPairs(values.externalLinks).map((l) => ({
+        id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        label: l.title,
+        url: l.url,
+      })),
     };
 
     if (isEdit && location) {
@@ -287,7 +361,7 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
           </DialogHeader>
 
           <div className="mt-4 flex gap-1 rounded-xl bg-muted/60 p-1">
-            {(["general", "tourism"] as const).map((t) => (
+            {(["general", "tourism", "cms"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -297,7 +371,7 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
                   tab === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {t === "general" ? "General information" : "Tourism & media"}
+                {t === "general" ? "General information" : t === "tourism" ? "Tourism & media" : "CMS details"}
               </button>
             ))}
           </div>
@@ -345,7 +419,7 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
 
               <TextInput label="Tags (comma separated)" value={values.tags} onChange={(v) => set("tags", v)} placeholder="ancient, unesco, must-see" />
             </div>
-          ) : (
+          ) : tab === "tourism" ? (
             <div className="space-y-5">
               <div className="flex items-center gap-2 rounded-xl bg-violet-500/5 px-3 py-2 text-sm text-violet-600 dark:text-violet-400">
                 <Sparkles className="size-4 shrink-0" />
@@ -412,6 +486,51 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
                 value={values.images}
                 onChange={(v) => set("images", v)}
                 placeholder="https://.../photo1.jpg, https://.../photo2.jpg"
+              />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 rounded-xl bg-brand/5 px-3 py-2 text-sm text-brand">
+                <Sparkles className="size-4 shrink-0" />
+                CMS fields feed the mobile app, AI service, and public APIs.
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextAreaField label="Local laws" value={values.localLaws} onChange={(v) => set("localLaws", v)} rows={2} placeholder="e.g. Alcohol sale prohibited on-site" />
+                <TextAreaField label="Notes" value={values.notes} onChange={(v) => set("notes", v)} rows={2} placeholder="Internal editorial notes" />
+              </div>
+
+              <TextAreaField
+                label="Documents (one per line: Title = URL)"
+                value={values.documents}
+                onChange={(v) => set("documents", v)}
+                rows={2}
+                placeholder={"Tourist map = https://.../map.pdf\nVisitor rules = https://.../rules.pdf"}
+              />
+
+              <TextAreaField
+                label="Attachments (one per line: Name = URL)"
+                value={values.attachments}
+                onChange={(v) => set("attachments", v)}
+                rows={2}
+                placeholder={"Site plan = https://.../plan.pdf"}
+              />
+
+              <TextAreaField
+                label="External links (one per line: Label = URL)"
+                value={values.externalLinks}
+                onChange={(v) => set("externalLinks", v)}
+                rows={2}
+                placeholder={"Official website = https://site.example\nInstagram = https://instagram.com/..."}
+              />
+
+              <TextAreaField
+                label="Custom metadata (one per line: key = value)"
+                value={values.customMetadata}
+                onChange={(v) => set("customMetadata", v)}
+                rows={3}
+                hint="Extensible key/value pairs for AI and future APIs."
+                placeholder={"opening_season = winter\ncapacity = 500\nparking = onsite"}
               />
             </div>
           )}

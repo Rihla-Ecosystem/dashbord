@@ -139,6 +139,45 @@ export function useSetGeoLocationStatus(id: string) {
   });
 }
 
+export function useBulkGeoLocationStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: GeoLocation["status"] }) =>
+      geocontextApi.bulkSetLocationStatus(ids, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
+export function useBulkDeleteGeoLocations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => geocontextApi.bulkDeleteLocations(ids),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: ["geocontext", "locations"] });
+      const idSet = new Set(ids);
+      qc.setQueriesData<PaginatedLocations>({ queryKey: ["geocontext", "locations"] }, (old) => {
+        if (!old) return old;
+        const removed = old.data.filter((l) => idSet.has(l.id)).length;
+        return {
+          ...old,
+          data: old.data.filter((l) => !idSet.has(l.id)),
+          total: old.total - removed,
+        };
+      });
+      ids.forEach((id) => qc.removeQueries({ queryKey: GEO_QUERY_KEYS.location(id) }));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
 export function useAddGeoWarning(locationId: string) {
   const qc = useQueryClient();
   return useMutation({

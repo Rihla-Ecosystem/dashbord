@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Edit3, MapPin, Trash2 } from "lucide-react";
+import { CheckSquare, Eye, Edit3, MapPin, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
 import { CategoryBadge, RiskBadge, StatusBadge } from "./badges";
@@ -18,6 +18,8 @@ interface LocationTableProps {
   renderPublishToggle?: (location: GeoLocation) => React.ReactNode;
   canEdit: boolean;
   canDelete: boolean;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
   emptyTitle?: string;
   emptyDescription?: string;
 }
@@ -32,10 +34,53 @@ export function LocationTable({
   renderPublishToggle,
   canEdit,
   canDelete,
+  selectedIds,
+  onSelectionChange,
   emptyTitle = "No locations found",
   emptyDescription = "Try adjusting your filters, or add a new location.",
 }: LocationTableProps) {
+  const selectable = !!onSelectionChange;
+  const pageIds = locations.map((l) => l.id);
+  const isSelected = (id: string) => (selectedIds?.has(id) ?? false);
+  const allPageSelected = selectable && pageIds.length > 0 && pageIds.every((id) => isSelected(id));
+
+  const toggleOne = (id: string) => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedIds ?? []);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange(next);
+  };
+
+  const toggleAll = () => {
+    if (!onSelectionChange) return;
+    if (allPageSelected) {
+      const ids = new Set(selectedIds ?? []);
+      pageIds.forEach((id) => ids.delete(id));
+      onSelectionChange(ids);
+    } else {
+      onSelectionChange(new Set([...(selectedIds ?? []), ...pageIds]));
+    }
+  };
+
   const columns: ColumnDef<GeoLocation, unknown>[] = [
+    ...(selectable
+      ? ([
+          {
+            id: "select",
+            header: () => (
+              <button type="button" onClick={toggleAll} aria-label="Select all on page" className="text-muted-foreground hover:text-foreground">
+                {allPageSelected ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+              </button>
+            ),
+            cell: ({ row }: { row: { original: GeoLocation } }) => (
+              <button type="button" onClick={() => toggleOne(row.original.id)} aria-label="Select row" className="text-muted-foreground hover:text-primary">
+                {isSelected(row.original.id) ? <CheckSquare className="size-4 text-primary" /> : <Square className="size-4" />}
+              </button>
+            ),
+          },
+        ] as ColumnDef<GeoLocation, unknown>[])
+      : []),
     {
       accessorKey: "nameEn",
       header: "Name",

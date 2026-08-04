@@ -260,6 +260,42 @@ export const geocontextApi = {
     return unwrapEnvelope<GeoLocation>(data);
   },
 
+  async bulkSetLocationStatus(ids: string[], status: GeoLocation["status"]): Promise<{ updated: number }> {
+    if (await detectMockMode()) {
+      const storeData = getStore();
+      let updated = 0;
+      for (const id of ids) {
+        const loc = storeData.locations.find((l) => l.id === id);
+        if (!loc) continue;
+        loc.status = status;
+        loc.updatedAt = now();
+        loc.publishedAt = status === "published" ? now() : loc.publishedAt;
+        loc.auditLog = [
+          { id: uid("audit"), action: `location.${status}`, actor: "You", createdAt: now() },
+          ...loc.auditLog,
+        ];
+        updated += 1;
+      }
+      if (updated > 0) pushActivity("location", `location.bulk_${status}`, `${updated} location(s)`);
+      return { updated };
+    }
+    const { data } = await axiosInstance.put<unknown>("/geocontext/location/bulk/status", { ids, status });
+    return unwrapEnvelope<{ updated: number }>(data);
+  },
+
+  async bulkDeleteLocations(ids: string[]): Promise<{ deleted: number }> {
+    if (await detectMockMode()) {
+      const storeData = getStore();
+      const before = storeData.locations.length;
+      storeData.locations = storeData.locations.filter((l) => !ids.includes(l.id));
+      const deleted = before - storeData.locations.length;
+      if (deleted > 0) pushActivity("location", "location.bulk_deleted", `${deleted} location(s)`);
+      return { deleted };
+    }
+    const { data } = await axiosInstance.delete<unknown>("/geocontext/location/bulk", { data: { ids } });
+    return unwrapEnvelope<{ deleted: number }>(data);
+  },
+
   async addWarning(locationId: string, warning: Omit<LocationWarning, "id" | "createdAt">): Promise<LocationWarning> {
     const created: LocationWarning = {
       ...warning,
@@ -388,6 +424,9 @@ export const geocontextApi = {
           contact: {},
           visibility: "public",
           customMetadata: {},
+          documents: [],
+          attachments: [],
+          externalLinks: [],
         };
         getStore().locations.unshift(createMockLocation(input));
         imported += 1;

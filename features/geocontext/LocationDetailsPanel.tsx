@@ -8,10 +8,14 @@ import {
   Clock,
   Edit3,
   ExternalLink,
+  FileText,
+  Gavel,
+  GitFork,
   Globe2,
   History,
   Image as ImageIcon,
   Info,
+  Link2,
   MapPin,
   Phone,
   PlayCircle,
@@ -31,7 +35,7 @@ import { getErrorMessage } from "@/utils";
 import type { GeoLocation, LocationWarning, NearbyService, NearbyServiceType } from "@/types/geocontext";
 import { cn } from "@/lib/utils";
 
-type Tab = "profile" | "tourism" | "warnings" | "nearby" | "history";
+type Tab = "profile" | "tourism" | "warnings" | "nearby" | "history" | "cms";
 
 interface LocationDetailsPanelProps {
   location: GeoLocation;
@@ -41,6 +45,7 @@ interface LocationDetailsPanelProps {
   onClose: () => void;
   canEdit: boolean;
   canDelete: boolean;
+  allLocations?: GeoLocation[];
 }
 
 function SafetyRing({ score }: { score: number }) {
@@ -151,6 +156,7 @@ export function LocationDetailsPanel({
   onClose,
   canEdit,
   canDelete,
+  allLocations = [],
 }: LocationDetailsPanelProps) {
   const [tab, setTab] = useState<Tab>("profile");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -189,12 +195,20 @@ export function LocationDetailsPanel({
     });
   };
 
+  const setDraft = () => {
+    statusMutation.mutate("draft", {
+      onSuccess: () => toast.success(`"${location.nameEn}" saved as draft`),
+      onError: (error) => toast.error(getErrorMessage(error)),
+    });
+  };
+
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "profile", label: "Profile", icon: <Info className="size-3.5" /> },
     { id: "tourism", label: "Tourism", icon: <BookOpen className="size-3.5" /> },
     { id: "warnings", label: `Warnings (${location.warnings.length})`, icon: <ShieldAlert className="size-3.5" /> },
     { id: "nearby", label: "Nearby", icon: <MapPin className="size-3.5" /> },
     { id: "history", label: "History", icon: <History className="size-3.5" /> },
+    { id: "cms", label: "CMS", icon: <FileText className="size-3.5" /> },
   ];
 
   return (
@@ -234,6 +248,11 @@ export function LocationDetailsPanel({
             <Button size="sm" variant="outline" onClick={toggleStatus} disabled={!canEdit || statusMutation.isPending}>
               {location.status === "published" ? "Unpublish" : "Publish"}
             </Button>
+            {location.status !== "draft" && (
+              <Button size="sm" variant="outline" onClick={() => setDraft()} disabled={!canEdit || statusMutation.isPending}>
+                Save as draft
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={onAddWarning} disabled={!canEdit}>
               <Plus className="size-3.5" />
               Warning
@@ -458,6 +477,112 @@ export function LocationDetailsPanel({
               </div>
             </div>
           </>
+        )}
+
+        {tab === "cms" && (
+          <div className="space-y-4">
+            {location.localLaws && <InfoBox label="Local laws" value={location.localLaws} />}
+            {location.notes && <InfoBox label="Notes" value={location.notes} />}
+
+            {location.externalLinks.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <Link2 className="size-4 text-muted-foreground" />
+                  External links
+                </p>
+                <div className="space-y-1.5">
+                  {location.externalLinks.map((link) => (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-sm text-primary hover:bg-muted/30 hover:underline"
+                    >
+                      <ExternalLink className="size-3.5 shrink-0" />
+                      <span className="truncate">{link.label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {location.documents.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <FileText className="size-4 text-muted-foreground" />
+                  Documents
+                </p>
+                <div className="space-y-1.5">
+                  {location.documents.map((doc) => (
+                    <a key={doc.id} href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-sm hover:bg-muted/30">
+                      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{doc.title}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {location.attachments.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <Globe2 className="size-4 text-muted-foreground" />
+                  Attachments
+                </p>
+                <div className="space-y-1.5">
+                  {location.attachments.map((att) => (
+                    <a key={att.id} href={att.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 text-sm hover:bg-muted/30">
+                      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{att.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {location.relatedLocationIds.length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <GitFork className="size-4 text-muted-foreground" />
+                  Related locations
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {location.relatedLocationIds.map((id) => {
+                    const related = allLocations.find((l) => l.id === id);
+                    return (
+                      <span key={id} className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+                        {related?.nameEn ?? id}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {Object.keys(location.customMetadata).length > 0 && (
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                  <Gavel className="size-4 text-muted-foreground" />
+                  Custom metadata
+                </p>
+                <div className="space-y-1.5">
+                  {Object.entries(location.customMetadata).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                      <span className="font-medium capitalize">{key.replace(/-|_/g, " ")}</span>
+                      <span className="text-muted-foreground">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(location.localLaws || location.notes || location.documents.length || location.attachments.length || location.externalLinks.length || location.relatedLocationIds.length || Object.keys(location.customMetadata).length) === 0 && (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                No CMS details added yet.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
