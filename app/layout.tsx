@@ -24,8 +24,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
-      className={cn("h-full scroll-smooth antialiased", inter.variable)}
+      className={cn("h-full antialiased", inter.variable)}
     >
       <body className="flex min-h-full flex-col transition-colors duration-300">
         <Providers>{children}</Providers>

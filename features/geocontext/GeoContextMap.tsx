@@ -498,10 +498,10 @@ export function GeoContextMap({
             ))}
           </MarkerClusterGroup>
         )}
-      </MapContainer>
 
-      <MapTools />
-      <SelectedBounds locations={locations} selectedId={selectedLocationId} />
+        <MapTools />
+        <SelectedBounds locations={locations} selectedId={selectedLocationId} />
+      </MapContainer>
 
       {drawMode === "zone" && (
         <div className="absolute left-3 top-3 z-[500] flex items-center gap-2 rounded-xl bg-amber-500/95 px-3 py-2 text-xs font-medium text-white shadow-lg">
