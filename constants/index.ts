@@ -69,6 +69,10 @@ export const QUERY_KEYS = {
   adminTokenTransactions: (userId: string, params?: unknown) =>
     ["admin-token-transactions", userId, params] as const,
 
+  vectorCollections: ["vector-collections"] as const,
+  vectorPoints: (collectionName: string, params?: unknown) =>
+    ["vector-points", collectionName, params] as const,
+
 } as const;
 
 export interface NavItem {
@@ -80,18 +84,19 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard" ,  roles: ["ADMIN", "MODERATOR"]},
   { href: "/analytics", label: "Analytics", icon: "analytics" },
   { href: "/users", label: "Users", icon: "users", roles: ["ADMIN", "MODERATOR"] },
   { href: "/roles", label: "Roles", icon: "roles", roles: ["ADMIN"] },
   { href: "/badges", label: "Badges", icon: "badges", roles: ["ADMIN", "MODERATOR"] },
-  { href: "/geo", label: "Geo Services", icon: "geo" },
-  { href: "/environment", label: "Environment", icon: "environment" },
+  { href: "/geo", label: "Geo Services", icon: "geo" ,  roles: ["ADMIN", "MODERATOR"]},
+  { href: "/environment", label: "Environment", icon: "environment" , roles: ["ADMIN", "MODERATOR"]},
+  { href: "/vector-db", label: "Vector DB", icon: "vectorDb" , roles: ["ADMIN", "MODERATOR"]},
   { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
   { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
   { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
-  { href: "/settings", label: "Settings", icon: "settings" },
+  { href: "/settings", label: "Settings", icon: "settings" ,  roles: ["ADMIN", "MODERATOR"] },
 
 ];
 
@@ -117,5 +122,6 @@ export const PROTECTED_ROUTES = [
   "/audit-logs",
   "/settings",
   "/profile",
+  "/vector-db",
 
 ] as const;

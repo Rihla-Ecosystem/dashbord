@@ -96,7 +96,7 @@ export default function GeoPage() {
           placeholder="Longitude"
           className="h-9 w-32 rounded-xl"
         />
-<<<<<<< HEAD
+
         <Select value={category || "all"} onValueChange={(value) => {
           if (value === null) {
             return;
@@ -104,9 +104,7 @@ export default function GeoPage() {
 
           setCategory(value === "all" ? "" : value);
         }}>
-=======
-        <Select value={category || "all"} onValueChange={(v) => setCategory(v === "all" ? "" : (v ?? ""))}>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+
           <SelectTrigger className="h-9 w-35 rounded-xl">
             <SelectValue placeholder="Category" />
           </SelectTrigger>

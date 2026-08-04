@@ -7,3 +7,4 @@ export { environmentApi } from "./environment";
 export { paymentsApi } from "./payments";
 export { tokenPackagesApi } from "./token-packages";
 export { tokenWalletsApi } from "./token-wallets";
+export { vectorDbApi } from "./vector-db";

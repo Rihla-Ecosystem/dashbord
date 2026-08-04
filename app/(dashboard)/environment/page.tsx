@@ -30,12 +30,7 @@ export default function EnvironmentPage() {
     return <ErrorState message="Current weather and air quality data are unavailable." onRetry={() => refetch()} />;
   }
 
-<<<<<<< HEAD
-  const { weather, airQuality, location, updatedAt } = data;
-  const prayerTimes: PrayerTime[] = data.prayerTimes ?? [];
-=======
-  const { weather, airQuality, prayerTimes, location, updatedAt } = data ?? {};
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+ const { weather, airQuality, prayerTimes, location, updatedAt } = data ?? {};
 
   const aqiColor =
     !airQuality
@@ -143,11 +138,9 @@ export default function EnvironmentPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Updated</span>
-<<<<<<< HEAD
+
               <span className="font-medium">{formatUpdatedAt(updatedAt)}</span>
-=======
-              <span className="font-medium">{updatedAt ? formatDateTime(updatedAt) : "—"}</span>
->>>>>>> ec93b98 (fix(dashboard): resolve 72 TS errors, clean lint, restore broken data hooks)
+
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Air Quality</span>

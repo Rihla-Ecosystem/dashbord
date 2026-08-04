@@ -205,11 +205,13 @@ export default function UsersPage() {
       try {
         const rolesData : { id: number; name: string }[]  = await dashboardApi.getRoles();
         setRoles(rolesData);
+         console.log("Roles fetched:", roles);
       } catch (error) {
         console.error("Failed to fetch roles:", error);
       }
     };
     fetchRoles();
+   
   }, []);
   
 
@@ -285,9 +287,20 @@ export default function UsersPage() {
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setRoleTarget({ user: row.original, role: "MODERATOR" })}>
-                <Shield className="size-4" /> Change Role
-              </DropdownMenuItem>
+              {roles.map((role) => (
+                  <DropdownMenuItem
+                    key={role.id}
+                    onClick={() =>
+                      setRoleTarget({
+                        user: row.original,
+                        role : role.name as UserRole,
+                      })
+                    }
+                  >
+                    <Shield className="size-4" />
+                    {role.name}
+                  </DropdownMenuItem>
+                ))}
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => setBanTarget(row.original)}
@@ -693,23 +706,31 @@ export default function UsersPage() {
           }
         }}
       />
-
-      <ConfirmDialog
-        open={!!roleTarget}
-        onOpenChange={() => setRoleTarget(null)}
-        title="Change User Role"
-        description={`Change ${roleTarget?.user.name}'s role to Moderator?`}
-        confirmLabel="Change Role"
-        isLoading={updateRole.isPending}
-        onConfirm={() => {
-          if (roleTarget) {
-            updateRole.mutate(
-              { id: roleTarget.user.id, role: roleTarget.role },
-              { onSuccess: () => setRoleTarget(null) }
-            );
-          }
-        }}
-      />
+    <ConfirmDialog
+      open={!!roleTarget}
+      onOpenChange={() => setRoleTarget(null)}
+      title="Change User Role"
+      description={
+        roleTarget
+          ? `Change ${roleTarget.user.name}'s role to ${roleTarget.role}?`
+          : ""
+      }
+      confirmLabel="Change Role"
+      isLoading={updateRole.isPending}
+      onConfirm={() => {
+        if (roleTarget) {
+          updateRole.mutate(
+            {
+              id: roleTarget.user.id,
+              role: roleTarget.role,
+            },
+            {
+              onSuccess: () => setRoleTarget(null),
+            }
+          );
+        }
+      }}
+    />
 
       <ConfirmDialog
         open={!!deleteTarget}
