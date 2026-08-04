@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Download,
@@ -77,9 +78,9 @@ import {
   downloadFile,
 } from "@/features/geocontext/geoUtils";
 import { makeHeatPoints } from "@/features/geocontext/map/heat-layer";
-import { MAP_LAYERS } from "@/constants/geocontext";
+import { MAP_LAYERS, GEO_QUERY_KEYS } from "@/constants/geocontext";
 import { getErrorMessage } from "@/utils";
-import type { GeoCoordinates, GeoFilters, GeoLocation, RestrictedZone } from "@/types/geocontext";
+import type { Boundary, GeoCoordinates, GeoFilters, GeoLocation, RestrictedZone } from "@/types/geocontext";
 import { cn } from "@/lib/utils";
 
 type LocationDialogState = {
@@ -164,6 +165,7 @@ function GeoContextContent() {
   const deleteLocationMutation = useDeleteGeoLocation();
   const deleteZoneMutation = useDeleteRestrictedZone();
   const importGeoJSONMutation = useImportGeoJSON();
+  const queryClient = useQueryClient();
 
   const locations = useMemo(() => locationsQuery.data?.data ?? [], [locationsQuery.data]);
   const selectedLocation = selectedLocationId
@@ -583,7 +585,12 @@ function GeoContextContent() {
           setBoundaryDialog((prev) => ({ ...prev, open: false }));
           setDrawMode("boundary");
         }}
-        onCreated={() => toast.success("Boundary saved")}
+        onCreated={(boundary) => {
+          queryClient.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old: Boundary[] | undefined) =>
+            old ? [...old, boundary] : [boundary]
+          );
+          toast.success("Boundary saved");
+        }}
       />
       <ConfirmDialog
         open={!!deleteTarget}
