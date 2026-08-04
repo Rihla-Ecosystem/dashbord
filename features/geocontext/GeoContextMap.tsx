@@ -38,6 +38,7 @@ import { RiskHeatLayer, type HeatPoint } from "./map/heat-layer";
 import type { Boundary, GeoCoordinates, GeoLocation, RestrictedZone } from "@/types/geocontext";
 
 import "leaflet/dist/leaflet.css";
+import "leaflet-draw";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
