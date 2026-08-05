@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DashboardCard } from "@/components/shared/DashboardCard";
 import { PageLoader } from "@/components/shared/LoadingSpinner";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { useEnvironment } from "@/hooks/useEnvironment";
 import { formatDateTime } from "@/utils";
 import type { PrayerTime } from "@/types";
@@ -15,7 +16,16 @@ export default function EnvironmentPage() {
   if (isLoading) return <PageLoader />;
   if (error) return <ErrorState onRetry={() => refetch()} />;
 
-  const { weather, airQuality, prayerTimes, location, updatedAt } = data!;
+  if (!data?.weather || !data?.airQuality || !data?.prayerTimes) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Environment" description="Weather, air quality & prayer times" />
+        <EmptyState title="No environment data" description="Environment data is unavailable right now." />
+      </div>
+    );
+  }
+
+  const { weather, airQuality, prayerTimes, location, updatedAt } = data;
 
   const aqiColor =
     airQuality.aqi <= 50
@@ -105,7 +115,7 @@ export default function EnvironmentPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Last Updated</span>
-              <span className="font-medium">{formatDateTime(updatedAt)}</span>
+              <span className="font-medium">{updatedAt ? formatDateTime(updatedAt) : "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Air Quality</span>
