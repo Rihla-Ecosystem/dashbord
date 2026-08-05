@@ -9,6 +9,8 @@ import {
   deleteRestrictedZone,
 } from "@/lib/external/geo-restricted-zones";
 
+const ZONES_PATH = "/geo-context/restricted-zones";
+
 export async function getZones() {
   try {
     return { data: await listRestrictedZones() };
@@ -22,9 +24,9 @@ export async function createZoneAction(raw: unknown) {
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   try {
-    await createRestrictedZone({ ...parsed.data, source: "manual" });
-    revalidatePath("/geo-context/restricted-zones");
-    return { success: true };
+    const zone = await createRestrictedZone({ ...parsed.data, source: "manual" });
+    revalidatePath(ZONES_PATH);
+    return { success: true as const, data: zone };
   } catch (err) {
     return { error: (err as Error).message };
   }
@@ -35,9 +37,9 @@ export async function updateZoneAction(id: string, raw: unknown) {
   if (!parsed.success) return { error: parsed.error.flatten() };
 
   try {
-    await updateRestrictedZone(id, parsed.data);
-    revalidatePath("/geo-context/restricted-zones");
-    return { success: true };
+    const zone = await updateRestrictedZone(id, parsed.data);
+    revalidatePath(ZONES_PATH);
+    return { success: true as const, data: zone };
   } catch (err) {
     return { error: (err as Error).message };
   }
@@ -46,8 +48,8 @@ export async function updateZoneAction(id: string, raw: unknown) {
 export async function deleteZoneAction(id: string) {
   try {
     await deleteRestrictedZone(id);
-    revalidatePath("/geo-context/restricted-zones");
-    return { success: true };
+    revalidatePath(ZONES_PATH);
+    return { success: true as const };
   } catch (err) {
     return { error: (err as Error).message };
   }

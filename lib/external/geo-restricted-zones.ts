@@ -1,3 +1,5 @@
+import type { GeoJsonGeometry } from "@/lib/validations/geo-zone.schema";
+
 const BASE_URL = process.env.GEOCONTEXT_API_URL;
 const TOKEN = process.env.GEOCONTEXT_API_TOKEN;
 
@@ -7,14 +9,17 @@ export type RestrictedZone = {
   osm_id: number | null;
   name: string | null;
   reason: string | null;
+  info: string | null;
   subtype: string;
   zone_type: string;
   source: string;
+  geometry?: GeoJsonGeometry | null;
 };
 
 export type RestrictedZoneInput = {
   name?: string | null;
   reason?: string | null;
+  info?: string | null;
   subtype: string;
   zone_type?: string;
   source?: string;
