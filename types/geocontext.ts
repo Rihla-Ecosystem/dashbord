@@ -93,6 +93,7 @@ export interface RestrictedZone {
   polygon: GeoCoordinates[];
   createdAt: string;
   updatedAt: string;
+  source?: string;
 }
 
 export interface Boundary {

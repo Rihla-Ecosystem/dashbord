@@ -261,6 +261,7 @@ export const GEO_QUERY_KEYS = {
   analytics: ["geocontext", "analytics"] as const,
   nearby: (id: string) => ["geocontext", "nearby", id] as const,
   activity: ["geocontext", "activity"] as const,
+  governorates: ["geocontext", "governorates"] as const,
   weather: (lat: number, lng: number) => ["geocontext", "weather", lat, lng] as const,
   safety: (id: string) => ["geocontext", "safety", id] as const,
 };

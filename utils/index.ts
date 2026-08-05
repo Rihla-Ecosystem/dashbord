@@ -3,6 +3,7 @@ import type { UserRole } from "@/types";
 
 export function formatDate(date: string | Date, pattern = "MMM d, yyyy"): string {
   const d = typeof date === "string" ? parseISO(date) : date;
+  if (!d || isNaN(d.getTime())) return "Unknown";
   return format(d, pattern);
 }
 
@@ -12,6 +13,7 @@ export function formatDateTime(date: string | Date): string {
 
 export function formatRelative(date: string | Date): string {
   const d = typeof date === "string" ? parseISO(date) : date;
+  if (!d || isNaN(d.getTime())) return "Unknown";
   return formatDistanceToNow(d, { addSuffix: true });
 }
 

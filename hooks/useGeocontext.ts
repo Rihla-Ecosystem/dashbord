@@ -322,3 +322,12 @@ export function useWeather(lat: number, lng: number, enabled = true) {
     enabled: enabled && Number.isFinite(lat) && Number.isFinite(lng),
   });
 }
+
+export function useGovernorates() {
+  return useQuery({
+    queryKey: GEO_QUERY_KEYS.governorates,
+    queryFn: () => geocontextApi.getGovernorates(),
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}

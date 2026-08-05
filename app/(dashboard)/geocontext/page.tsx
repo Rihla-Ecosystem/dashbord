@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  BarChart3,
+  CheckCircle,
   Download,
   FileUp,
   Landmark,
@@ -12,9 +14,15 @@ import {
   PauseCircle,
   PlayCircle,
   Plus,
+  ShieldAlert,
   SlashSquare,
   Target,
   Trash2,
+  LayoutGrid,
+  Map,
+  Layers,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { FilterBar } from "@/components/shared/FilterBar";
@@ -47,8 +56,9 @@ import {
   RISK_LEVELS,
   RECENT_WINDOWS,
   GEO_STATUS_META,
+  GEO_QUERY_KEYS,
 } from "@/constants/geocontext";
-import { DEFAULT_PAGE_SIZE } from "@/constants";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/constants";
 import { geocontextApi } from "@/services/geocontext";
 import {
   useGeoLocations,
@@ -62,6 +72,7 @@ import {
   useImportGeoJSON,
   useBulkGeoLocationStatus,
   useBulkDeleteGeoLocations,
+  useGovernorates,
 } from "@/hooks/useGeocontext";
 import dynamic from "next/dynamic";
 import type { MapDrawMode } from "@/features/geocontext/GeoContextMap";
@@ -81,9 +92,9 @@ import {
   downloadFile,
 } from "@/features/geocontext/geoUtils";
 import { makeHeatPoints } from "@/features/geocontext/map/heat-layer";
-import { MAP_LAYERS, GEO_QUERY_KEYS } from "@/constants/geocontext";
-import { getErrorMessage } from "@/utils";
-import type { Boundary, GeoCoordinates, GeoFilters, GeoLocation, RestrictedZone } from "@/types/geocontext";
+import { MAP_LAYERS } from "@/constants/geocontext";
+import { getErrorMessage, formatRelative } from "@/utils";
+import type { Boundary, GeoCoordinates, GeoFilters, GeoLocation, RestrictedZone, LocationWarning, NearbyService, ActivityEvent } from "@/types/geocontext";
 import { cn } from "@/lib/utils";
 
 type LocationDialogState = {
@@ -104,6 +115,19 @@ const GeoContextMap = dynamic(() => import("@/features/geocontext/GeoContextMap"
     </div>
   ),
 });
+
+const TABS = [
+  { id: "overview", label: "Overview", icon: <LayoutGrid className="size-4" /> },
+  { id: "locations", label: "Locations", icon: <MapPinPlus className="size-4" /> },
+  { id: "map", label: "Interactive Map", icon: <Map className="size-4" /> },
+  { id: "zones", label: "Restricted Zones", icon: <SlashSquare className="size-4" /> },
+  { id: "boundaries", label: "Boundaries", icon: <Landmark className="size-4" /> },
+  { id: "warnings", label: "Warnings", icon: <ShieldAlert className="size-4" /> },
+  { id: "nearby", label: "Nearby Services", icon: <Target className="size-4" /> },
+  { id: "analytics", label: "Analytics", icon: <BarChart3 className="size-4" /> },
+  { id: "activity", label: "Activity", icon: <Clock className="size-4" /> },
+  { id: "import-export", label: "Import / Export", icon: <FileUp className="size-4" /> },
+];
 
 export default function GeoContextPage() {
   return (
@@ -165,6 +189,7 @@ function GeoContextContent() {
   const boundariesQuery = useGeoBoundaries();
   const analyticsQuery = useGeoAnalytics();
   const activityQuery = useGeoActivity();
+  const governoratesQuery = useGovernorates();
 
   const deleteLocationMutation = useDeleteGeoLocation();
   const deleteZoneMutation = useDeleteRestrictedZone();
@@ -304,28 +329,75 @@ function GeoContextContent() {
     toast.success(`Exported ${selectedLocations.length} selected location(s)`);
   };
 
+  const allWarnings = useMemo(() => {
+    return locations.flatMap((l) =>
+      l.warnings.map((w) => ({ ...w, locationId: l.id, locationName: l.nameEn }))
+    );
+  }, [locations]);
+
+  const allNearbyServices = useMemo(() => {
+    return locations.flatMap((l) =>
+      l.nearby.map((s) => ({ ...s, locationName: l.nameEn }))
+    );
+  }, [locations]);
+
+  const governorateNames = useMemo(() => {
+    const fetched = governoratesQuery.data?.map((g) => g.name) ?? [];
+    return fetched.length ? fetched : GOVERNORATES;
+  }, [governoratesQuery.data]);
+
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const tabActions = () => {
+    switch (activeTab) {
+      case "locations":
+        return [
+          <Button key="add" onClick={openCreateLocation}>
+            <Plus className="size-4" />
+            Add location
+          </Button>,
+          <Button key="map" variant="outline" onClick={() => setDrawMode(drawMode === "location" ? null : "location")}>
+            <MapPinPlus className="size-4" />
+            Place on map
+          </Button>,
+          <Button key="import" variant="outline" onClick={() => fileInputRef.current?.click()}>
+            <FileUp className="size-4" />
+            Import GeoJSON
+          </Button>,
+        ];
+      case "zones":
+        return [
+          <Button key="draw" variant="outline" onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")}>
+            <Plus className="size-4" />
+            Draw zone
+          </Button>,
+        ];
+      case "boundaries":
+        return [
+          <Button key="draw" variant="outline" onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")}>
+            <Plus className="size-4" />
+            Draw boundary
+          </Button>,
+        ];
+      case "import-export":
+        return [
+          <Button key="export" variant="outline" onClick={handleExport}>
+            <Download className="size-4" />
+            Export all
+          </Button>,
+        ];
+      default:
+        return [];
+    }
+  };
+
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <PageHeader
         title="GeoContext"
         description="Egypt's geographic knowledge base — locations, restricted zones, warnings and insights."
       >
-        <Button onClick={openCreateLocation}>
-          <Plus className="size-4" />
-          Add location
-        </Button>
-        <Button variant="outline" onClick={() => setDrawMode(drawMode === "location" ? null : "location")}>
-          <MapPinPlus className="size-4" />
-          Place on map
-        </Button>
-        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-          <FileUp className="size-4" />
-          Import GeoJSON
-        </Button>
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="size-4" />
-          Export GeoJSON
-        </Button>
+        {tabActions()}
         <input
           ref={fileInputRef}
           type="file"
@@ -339,89 +411,227 @@ function GeoContextContent() {
         />
       </PageHeader>
 
-      <GeoStatsGrid analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-1 flex-wrap">
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} icon={tab.icon}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <CategoryPieChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-        <SeverityBarChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-        <TopUpdatedList analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-      </div>
+        <TabsContent value="overview">
+          <div className="space-y-6">
+            <GeoStatsGrid analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <CategoryPieChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+              <SeverityBarChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+              <TopUpdatedList analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+            </div>
+            <DashboardCard title="Recent activity" description="Latest actions in GeoContext">
+              <ActivityFeed
+                events={activityQuery.data ?? []}
+                isLoading={activityQuery.isLoading}
+                className="h-[320px]"
+              />
+            </DashboardCard>
+          </div>
+        </TabsContent>
 
-      <FilterBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
-        <SearchBar value={filters.search} onChange={(v) => setFilter("search", v)} placeholder="Search locations..." />
-        <Select value={filters.category} onValueChange={(v) => setFilter("category", v ?? "")}>
-          <SelectTrigger className="h-10 w-44 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All categories</SelectItem>
-            {LOCATION_CATEGORIES.map((c) => (
-              <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.governorate} onValueChange={(v) => setFilter("governorate", v ?? "")}>
-          <SelectTrigger className="h-10 w-44 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All governorates</SelectItem>
-            {GOVERNORATES.map((g) => (
-              <SelectItem key={g} value={g}>{g}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.status} onValueChange={(v) => setFilter("status", v ?? "")}>
-          <SelectTrigger className="h-10 w-40 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
-            {Object.entries(GEO_STATUS_META).map(([value, meta]) => (
-              <SelectItem key={value} value={value}>{meta.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.risk} onValueChange={(v) => setFilter("risk", v ?? "")}>
-          <SelectTrigger className="h-10 w-40 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Any risk</SelectItem>
-            {RISK_LEVELS.map((r) => (
-              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filters.updatedSince} onValueChange={(v) => setFilter("updatedSince", v ?? "")}>
-          <SelectTrigger className="h-10 w-40 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Any time</SelectItem>
-            {RECENT_WINDOWS.map((w) => (
-              <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filters.hasWarnings === "" ? "" : filters.hasWarnings ? "true" : "false"}
-          onValueChange={(v) => setFilter("hasWarnings", v === null ? "" : v === "true")}
-        >
-          <SelectTrigger className="h-10 w-40 rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All</SelectItem>
-            <SelectItem value="true">With active warnings</SelectItem>
-            <SelectItem value="false">Without warnings</SelectItem>
-          </SelectContent>
-        </Select>
-      </FilterBar>
+        <TabsContent value="locations">
+          <div className="space-y-6">
+            <FilterBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+              <SearchBar value={filters.search} onChange={(v) => setFilter("search", v)} placeholder="Search locations..." />
+              <Select value={filters.category} onValueChange={(v) => setFilter("category", v ?? "")}>
+                <SelectTrigger className="h-10 w-44 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All categories</SelectItem>
+                  {LOCATION_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.governorate} onValueChange={(v) => setFilter("governorate", v ?? "")}>
+                <SelectTrigger className="h-10 w-44 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All governorates</SelectItem>
+                  {governorateNames.map((g) => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.status} onValueChange={(v) => setFilter("status", v ?? "")}>
+                <SelectTrigger className="h-10 w-40 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All statuses</SelectItem>
+                  {Object.entries(GEO_STATUS_META).map(([value, meta]) => (
+                    <SelectItem key={value} value={value}>{meta.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.risk} onValueChange={(v) => setFilter("risk", v ?? "")}>
+                <SelectTrigger className="h-10 w-40 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any risk</SelectItem>
+                  {RISK_LEVELS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filters.updatedSince} onValueChange={(v) => setFilter("updatedSince", v ?? "")}>
+                <SelectTrigger className="h-10 w-40 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any time</SelectItem>
+                  {RECENT_WINDOWS.map((w) => (
+                    <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.hasWarnings === "" ? "" : filters.hasWarnings ? "true" : "false"}
+                onValueChange={(v) => setFilter("hasWarnings", v === null ? "" : v === "true")}
+              >
+                <SelectTrigger className="h-10 w-40 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="true">With active warnings</SelectItem>
+                  <SelectItem value="false">Without warnings</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          <div className="relative rounded-2xl border border-border/50 shadow-sm">
+            <div className="grid gap-6 xl:grid-cols-3">
+              <div className="space-y-6 xl:col-span-2">
+                <div className="relative rounded-2xl border border-border/50 shadow-sm">
+                  <GeoContextMap
+                    locations={locations}
+                    zones={zonesQuery.data ?? []}
+                    boundaries={boundariesQuery.data ?? []}
+                    visibleLayers={visibleLayers}
+                    selectedLocationId={selectedLocationId}
+                    drawMode={drawMode}
+                    heatPoints={heatPoints}
+                    onSelectLocation={setSelectedLocationId}
+                    onMapClick={handleMapClick}
+                    onPolygonDrawn={handlePolygonDrawn}
+                  />
+                  <div className="absolute right-3 top-3 z-[500] flex flex-col gap-1.5">
+                    <ToolButton active={drawMode === "location"} onClick={() => setDrawMode(drawMode === "location" ? null : "location")} label="Place location" icon={<Target className="size-4" />} />
+                    <ToolButton active={drawMode === "zone"} onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")} label="Draw restricted zone" icon={<SlashSquare className="size-4" />} />
+                    <ToolButton active={drawMode === "boundary"} onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")} label="Draw boundary" icon={<Landmark className="size-4" />} />
+                  </div>
+                  {drawMode === "location" && (
+                    <div className="absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg">
+                      Click anywhere on the map to place a location
+                    </div>
+                  )}
+                </div>
+                <LayerPanel visibleLayers={visibleLayers} onToggle={toggleLayer} />
+              </div>
+
+              <div className="space-y-6">
+                {selectedLocation ? (
+                  <LocationDetailsPanel
+                    location={selectedLocation}
+                    allLocations={locations}
+                    onEdit={() => setLocationDialog({ open: true, location: selectedLocation, initialCoords: null, reverse: null })}
+                    onAddWarning={() => setWarningDialog({ open: true, locationId: selectedLocation.id, locationName: selectedLocation.nameEn })}
+                    onDelete={() => setDeleteTarget({ kind: "location", name: selectedLocation.nameEn, id: selectedLocation.id })}
+                    onClose={() => setSelectedLocationId(null)}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                  />
+                ) : (
+                  <ActivityFeed events={activityQuery.data ?? []} isLoading={activityQuery.isLoading} className="xl:h-[480px] xl:overflow-y-auto" />
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {locationsQuery.isError ? (
+                <ErrorState
+                  title="Failed to load locations"
+                  message={getErrorMessage(locationsQuery.error)}
+                  onRetry={() => locationsQuery.refetch()}
+                />
+              ) : (
+                <>
+                  {hasSelection && (
+                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+                      <span className="flex items-center gap-2 text-sm font-medium">
+                        <ListChecks className="size-4 text-primary" />
+                        {selectedIds.size} selected
+                      </span>
+                      <div className="ml-auto flex flex-wrap items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("published")} disabled={bulkStatusMutation.isPending}>
+                          <PlayCircle className="size-4 text-emerald-500" />
+                          Publish
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("draft")} disabled={bulkStatusMutation.isPending}>
+                          Set draft
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("unpublished")} disabled={bulkStatusMutation.isPending}>
+                          <PauseCircle className="size-4 text-amber-500" />
+                          Unpublish
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={handleBulkExport}>
+                          <Download className="size-4" />
+                          Export
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteMutation.isPending}>
+                          <Trash2 className="size-4" />
+                          Delete
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <LocationTable
+                    locations={locations}
+                    isLoading={locationsQuery.isLoading}
+                    selectedId={selectedLocationId ?? undefined}
+                    onSelect={(location) => setSelectedLocationId(location.id)}
+                    onEdit={(location) => setLocationDialog({ open: true, location, initialCoords: null, reverse: null })}
+                    onDelete={(location) => setDeleteTarget({ kind: "location", name: location.nameEn, id: location.id })}
+                    renderPublishToggle={(location) => <PublishButton location={location} canEdit={canEdit} />}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    selectedIds={selectedIds}
+                    onSelectionChange={setSelectedIds}
+                  />
+                  <Pagination
+                    page={page}
+                    totalPages={locationsQuery.data?.totalPages ?? 1}
+                    total={locationsQuery.data?.total ?? 0}
+                    limit={limit}
+                    onPageChange={setPage}
+                    onLimitChange={(l) => {
+                      setLimit(l);
+                      setPage(1);
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="map">
+          <div className="h-[calc(100vh-12rem)] rounded-2xl border border-border/50 shadow-sm">
             <GeoContextMap
               locations={locations}
               zones={zonesQuery.data ?? []}
@@ -434,201 +644,303 @@ function GeoContextContent() {
               onMapClick={handleMapClick}
               onPolygonDrawn={handlePolygonDrawn}
             />
-            <div className="absolute right-3 top-3 z-[500] flex flex-col gap-1.5">
-              <ToolButton active={drawMode === "location"} onClick={() => setDrawMode(drawMode === "location" ? null : "location")} label="Place location" icon={<Target className="size-4" />} />
-              <ToolButton active={drawMode === "zone"} onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")} label="Draw restricted zone" icon={<SlashSquare className="size-4" />} />
-              <ToolButton active={drawMode === "boundary"} onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")} label="Draw boundary" icon={<Landmark className="size-4" />} />
-            </div>
-            {drawMode === "location" && (
-              <div className="absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg">
-                Click anywhere on the map to place a location
-              </div>
-            )}
+            <LayerPanel visibleLayers={visibleLayers} onToggle={toggleLayer} />
           </div>
-          <LayerPanel visibleLayers={visibleLayers} onToggle={toggleLayer} />
-        </div>
+        </TabsContent>
 
-        <div className="space-y-6">
-          {selectedLocation ? (
-            <LocationDetailsPanel
-              location={selectedLocation}
-              allLocations={locations}
-              onEdit={() => setLocationDialog({ open: true, location: selectedLocation, initialCoords: null, reverse: null })}
-              onAddWarning={() => setWarningDialog({ open: true, locationId: selectedLocation.id, locationName: selectedLocation.nameEn })}
-              onDelete={() => setDeleteTarget({ kind: "location", name: selectedLocation.nameEn, id: selectedLocation.id })}
-              onClose={() => setSelectedLocationId(null)}
-              canEdit={canEdit}
-              canDelete={canDelete}
-            />
-          ) : (
-            <ActivityFeed events={activityQuery.data ?? []} isLoading={activityQuery.isLoading} className="xl:h-[480px] xl:overflow-y-auto" />
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {locationsQuery.isError ? (
-          <ErrorState
-            title="Failed to load locations"
-            message={getErrorMessage(locationsQuery.error)}
-            onRetry={() => locationsQuery.refetch()}
-          />
-        ) : (
-          <>
-            {hasSelection && (
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <ListChecks className="size-4 text-primary" />
-                  {selectedIds.size} selected
-                </span>
-                <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("published")} disabled={bulkStatusMutation.isPending}>
-                    <PlayCircle className="size-4 text-emerald-500" />
-                    Publish
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("draft")} disabled={bulkStatusMutation.isPending}>
-                    Set draft
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleBulkStatus("unpublished")} disabled={bulkStatusMutation.isPending}>
-                    <PauseCircle className="size-4 text-amber-500" />
-                    Unpublish
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={handleBulkExport}>
-                    <Download className="size-4" />
-                    Export
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteMutation.isPending}>
-                    <Trash2 className="size-4" />
-                    Delete
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                    Clear
-                  </Button>
-                </div>
+        <TabsContent value="zones">
+          <DashboardCard
+            title="Restricted zones"
+            description="Military & safety restrictions"
+            action={
+              <Button size="sm" variant="outline" onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")}>
+                <Plus className="size-4" />
+                Draw zone
+              </Button>
+            }
+          >
+            {zonesQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : zonesQuery.data?.length ? (
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="whitespace-nowrap">Name</TableHead>
+                      <TableHead className="whitespace-nowrap">Type</TableHead>
+                      <TableHead className="whitespace-nowrap">Risk</TableHead>
+                      <TableHead className="whitespace-nowrap">Source</TableHead>
+                      <TableHead className="whitespace-nowrap">Active</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {zonesQuery.data.map((zone) => (
+                      <TableRow key={zone.id} className="hover:bg-muted/20">
+                        <TableCell className="whitespace-nowrap font-medium">{zone.name}</TableCell>
+                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{zone.restrictionType.replace("_", " ")}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <RiskChip level={zone.riskLevel} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{zone.source}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {zone.active ? <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span> : <span className="text-xs text-muted-foreground">Inactive</span>}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => setZoneDialog({ open: true, zone, polygon: zone.polygon })}
+                              disabled={!canEdit}
+                              title="Edit zone"
+                            >
+                              <Edit3Icon className="size-4" />
+                            </Button>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => setDeleteTarget({ kind: "zone", name: zone.name, id: zone.id })}
+                              disabled={!canDelete}
+                              title="Delete zone"
+                            >
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No restricted zones yet.</p>
             )}
-            <LocationTable
-              locations={locations}
-              isLoading={locationsQuery.isLoading}
-              selectedId={selectedLocationId ?? undefined}
-              onSelect={(location) => setSelectedLocationId(location.id)}
-              onEdit={(location) => setLocationDialog({ open: true, location, initialCoords: null, reverse: null })}
-              onDelete={(location) => setDeleteTarget({ kind: "location", name: location.nameEn, id: location.id })}
-              renderPublishToggle={(location) => <PublishButton location={location} canEdit={canEdit} />}
-              canEdit={canEdit}
-              canDelete={canDelete}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-            />
-            <Pagination
-              page={page}
-              totalPages={locationsQuery.data?.totalPages ?? 1}
-              total={locationsQuery.data?.total ?? 0}
-              limit={limit}
-              onPageChange={setPage}
-              onLimitChange={(l) => {
-                setLimit(l);
-                setPage(1);
-              }}
-            />
-          </>
-        )}
-      </div>
+          </DashboardCard>
+        </TabsContent>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <DashboardCard
-          title="Restricted zones"
-          description="Military & safety restrictions"
-          action={
-            <Button size="sm" variant="outline" onClick={() => setDrawMode("zone")}>
-              <Plus className="size-4" />
-              Draw zone
-            </Button>
-          }
-        >
-          {zonesQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : zonesQuery.data?.length ? (
-            <div className="max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="whitespace-nowrap">Name</TableHead>
-                    <TableHead className="whitespace-nowrap">Type</TableHead>
-                    <TableHead className="whitespace-nowrap">Risk</TableHead>
-                    <TableHead className="whitespace-nowrap">Active</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {zonesQuery.data.map((zone) => (
-                    <TableRow key={zone.id} className="hover:bg-muted/20">
-                      <TableCell className="whitespace-nowrap font-medium">{zone.name}</TableCell>
-                      <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{zone.restrictionType.replace("_", " ")}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", riskChip(zone.riskLevel))}>{zone.riskLevel}</span>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {zone.active ? <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span> : <span className="text-xs text-muted-foreground">Inactive</span>}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button size="icon-sm" variant="ghost" onClick={() => setZoneDialog({ open: true, zone, polygon: zone.polygon })} disabled={!canEdit} title="Edit zone">
-                            <Edit3Icon className="size-4" />
-                          </Button>
-                          <Button size="icon-sm" variant="ghost" onClick={() => setDeleteTarget({ kind: "zone", name: zone.name, id: zone.id })} disabled={!canDelete} title="Delete zone">
-                            <Trash2 className="size-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+        <TabsContent value="boundaries">
+          <DashboardCard
+            title="Boundaries"
+            description="Governorate & administrative borders"
+            action={
+              <Button size="sm" variant="outline" onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")}>
+                <Plus className="size-4" />
+                Draw boundary
+              </Button>
+            }
+          >
+            {boundariesQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : boundariesQuery.data?.length ? (
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="whitespace-nowrap">Name</TableHead>
+                      <TableHead className="whitespace-nowrap">Type</TableHead>
+                      <TableHead className="whitespace-nowrap">Updated</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No restricted zones yet.</p>
-          )}
-        </DashboardCard>
+                  </TableHeader>
+                  <TableBody>
+                    {boundariesQuery.data.map((boundary) => (
+                      <TableRow key={boundary.id} className="hover:bg-muted/20">
+                        <TableCell className="whitespace-nowrap font-medium">{boundary.name}</TableCell>
+                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{boundary.type}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{boundary.createdAt}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No boundaries drawn yet.</p>
+            )}
+          </DashboardCard>
+        </TabsContent>
 
-        <DashboardCard
-          title="Boundaries"
-          description="Governorate & administrative borders"
-          action={
-            <Button size="sm" variant="outline" onClick={() => setDrawMode("boundary")}>
-              <Plus className="size-4" />
-              Draw boundary
-            </Button>
-          }
-        >
-          {boundariesQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : boundariesQuery.data?.length ? (
-            <div className="max-h-96 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="whitespace-nowrap">Name</TableHead>
-                    <TableHead className="whitespace-nowrap">Type</TableHead>
-                    <TableHead className="whitespace-nowrap">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {boundariesQuery.data.map((boundary) => (
-                    <TableRow key={boundary.id} className="hover:bg-muted/20">
-                      <TableCell className="whitespace-nowrap font-medium">{boundary.name}</TableCell>
-                      <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{boundary.type}</TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">{boundary.createdAt}</TableCell>
+        <TabsContent value="warnings">
+          <DashboardCard title="All warnings" description="Active & historical warnings across locations">
+            {locationsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : allWarnings.length ? (
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="whitespace-nowrap">Title</TableHead>
+                      <TableHead className="whitespace-nowrap">Location</TableHead>
+                      <TableHead className="whitespace-nowrap">Severity</TableHead>
+                      <TableHead className="whitespace-nowrap">Category</TableHead>
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="whitespace-nowrap">Created</TableHead>
+                      <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {allWarnings.map((warning) => (
+                      <TableRow key={warning.id} className="hover:bg-muted/20">
+                        <TableCell className="whitespace-nowrap font-medium">{warning.title}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{warning.locationName}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <WarningSeverityBadge severity={warning.severity} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{warning.category.replace("_", " ")}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {warning.active ? <CheckCircle className="size-4 text-emerald-500" /> : <AlertCircle className="size-4 text-muted-foreground" />}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{formatRelative(warning.createdAt)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right">
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            onClick={() => {
+                              if (canEdit) {
+                                void geocontextApi.deleteWarning(warning.locationId, warning.id)
+                                  .then(() => {
+                                    toast.success("Warning removed");
+                                    queryClient.invalidateQueries({ queryKey: ["geocontext", "locations"] });
+                                    queryClient.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
+                                  })
+                                  .catch((err) => toast.error(getErrorMessage(err)));
+                              }
+                            }}
+                            disabled={!canEdit}
+                            title="Delete warning"
+                          >
+                            <Trash2 className="size-3.5 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No warnings found.</p>
+            )}
+          </DashboardCard>
+        </TabsContent>
+
+        <TabsContent value="nearby">
+          <DashboardCard title="Nearby services" description="Services associated with each location">
+            {locationsQuery.isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : allNearbyServices.length ? (
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="whitespace-nowrap">Name</TableHead>
+                      <TableHead className="whitespace-nowrap">Location</TableHead>
+                      <TableHead className="whitespace-nowrap">Type</TableHead>
+                      <TableHead className="whitespace-nowrap">Distance (km)</TableHead>
+                      <TableHead className="whitespace-nowrap">Rating</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allNearbyServices.map((service) => (
+                      <TableRow key={service.id} className="hover:bg-muted/20">
+                        <TableCell className="whitespace-nowrap font-medium">{service.name}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{service.locationName}</TableCell>
+                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{service.type.replace("_", " ")}</TableCell>
+                        <TableCell className="whitespace-nowrap">{service.distanceKm.toFixed(1)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{service.rating?.toFixed(1) ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No nearby services found.</p>
+            )}
+          </DashboardCard>
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <div className="space-y-6">
+            <GeoStatsGrid analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <CategoryPieChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+              <SeverityBarChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+              <TopUpdatedList analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
             </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No boundaries drawn yet.</p>
-          )}
-        </DashboardCard>
-      </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <DashboardCard title="Activity feed" description="All actions performed in GeoContext">
+            <ActivityFeed
+              events={activityQuery.data ?? []}
+              isLoading={activityQuery.isLoading}
+              className="h-[500px]"
+            />
+          </DashboardCard>
+        </TabsContent>
+
+        <TabsContent value="import-export">
+          <div className="space-y-6">
+            <DashboardCard title="Import GeoJSON" description="Import location data from a GeoJSON FeatureCollection">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".geojson,.json,application/geo+json,application/json"
+                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:py-2 file:px-4 file:text-sm file:font-semibold file:text-primary-foreground hover:file:cursor-pointer hover:file:bg-primary/90"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleImport(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Or paste GeoJSON URL"
+                    className="flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm outline-none focus:border-ring"
+                  />
+                  <Button variant="outline">Fetch</Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Supported: GeoJSON FeatureCollection with Point geometries. Fields: nameEn, nameAr, category, governorate, city, country, lat, lng, safetyScore, riskLevel, status.
+                </p>
+              </div>
+            </DashboardCard>
+
+            <DashboardCard title="Export" description="Download your geographic data">
+              <div className="flex flex-col gap-3">
+                <Button variant="outline" onClick={handleExport}>
+                  <Download className="mr-2 size-4" />
+                  Export all locations to GeoJSON
+                </Button>
+                {hasSelection && (
+                  <Button variant="outline" onClick={handleBulkExport}>
+                    <Download className="mr-2 size-4" />
+                    Export {selectedIds.size} selected locations
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const fc = await geocontextApi.exportGeoJSON();
+                      downloadFile("geocontext-boundaries.geojson", JSON.stringify(fc, null, 2));
+                      toast.success("Exported boundary data to GeoJSON");
+                    } catch (error) {
+                      toast.error(getErrorMessage(error));
+                    }
+                  }}
+                >
+                  <Download className="mr-2 size-4" />
+                  Export boundaries to GeoJSON
+                </Button>
+              </div>
+            </DashboardCard>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <LocationFormDialog
         open={locationDialog.open}
@@ -731,17 +1043,46 @@ function Edit3Icon({ className }: { className?: string }) {
   );
 }
 
-function riskChip(level: string): string {
-  switch (level) {
-    case "low":
-      return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
-    case "moderate":
-      return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
-    case "high":
-      return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
-    case "extreme":
-      return "bg-red-500/10 text-red-600 dark:text-red-400";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
+function RiskChip({ level }: { level: string }) {
+  const cls = (() => {
+    switch (level) {
+      case "low":
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+      case "moderate":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+      case "high":
+        return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
+      case "extreme":
+        return "bg-red-500/10 text-red-600 dark:text-red-400";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  })();
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {level}
+    </span>
+  );
+}
+
+function WarningSeverityBadge({ severity }: { severity: string }) {
+  const cls = (() => {
+    switch (severity) {
+      case "critical":
+        return "bg-red-500/10 text-red-600 dark:text-red-400";
+      case "high":
+        return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
+      case "medium":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+      case "low":
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+      default:
+        return "bg-slate-500/10 text-slate-600 dark:text-slate-400";
+    }
+  })();
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {severity}
+    </span>
+  );
 }

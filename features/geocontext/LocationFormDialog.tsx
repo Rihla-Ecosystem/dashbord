@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { TextInput, TextAreaField, SelectField, type SelectOption } from "./form-fields";
-import { LOCATION_CATEGORIES, GOVERNORATES, EGYPT_CITIES } from "@/constants/geocontext";
-import { useCreateGeoLocation, useUpdateGeoLocation } from "@/hooks/useGeocontext";
+import { LOCATION_CATEGORIES, EGYPT_CITIES, GOVERNORATES } from "@/constants/geocontext";
+import { useCreateGeoLocation, useUpdateGeoLocation, useGovernorates } from "@/hooks/useGeocontext";
 import { getErrorMessage } from "@/utils";
 import { isValidCoordinate, type ReverseGeocodeResult } from "./geoUtils";
 import type { GeoLocation, LocationInput, GeoVisibility } from "@/types/geocontext";
@@ -333,7 +333,14 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
   };
 
   const categories: SelectOption[] = LOCATION_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
-  const governorates: SelectOption[] = GOVERNORATES.map((g) => ({ value: g, label: g }));
+  const governoratesQuery = useGovernorates();
+  const governorateOptions: SelectOption[] = (governoratesQuery.data?.length
+    ? governoratesQuery.data
+    : GOVERNORATES
+  ).map((g) => {
+    const label = typeof g === 'string' ? g : g.name;
+    return { value: label, label };
+  });
   const cities: SelectOption[] = EGYPT_CITIES.map((c) => ({ value: c, label: c }));
   const visibilityOptions: SelectOption[] = [
     { value: "public", label: "Public" },
@@ -405,7 +412,7 @@ export function LocationFormDialog({ open, onOpenChange, location, initialCoords
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
-                <SelectField label="Governorate" required value={values.governorate} onValueChange={(v) => set("governorate", v)} options={governorates} error={errors.governorate} />
+                <SelectField label="Governorate" required value={values.governorate} onValueChange={(v) => set("governorate", v)} options={governorateOptions} error={errors.governorate} />
                 <SelectField label="City" required value={values.city} onValueChange={(v) => set("city", v)} options={cities} error={errors.city} placeholder="Select city" />
                 <TextInput label="Country" required value={values.country} onChange={(v) => set("country", v)} error={errors.country} />
               </div>
