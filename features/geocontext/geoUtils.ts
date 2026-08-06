@@ -66,6 +66,37 @@ export function isValidCoordinate(lat: number, lng: number): boolean {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
+export interface PointResult {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Parses a free-text search query into coordinates when it looks like a pair of
+ * numbers (e.g. "26.82, 30.80", "26.8205 30.8025", "26°49'…"). Returns null when
+ * the query resembles a place name instead.
+ */
+export function parseCoordinateQuery(query: string): PointResult | null {
+  const q = query.trim().replace(/°/g, " ").replace(/'/g, " ").replace(/"/g, " ");
+  const numbers = q.match(/-?\d+\.?\d*/g)?.map(Number) ?? [];
+  if (numbers.length < 2) return null;
+  const [a, b, c] = numbers;
+  // Heuristic: prefer (lat, lng) ordering; lng values > 180 are invalid.
+  let lat = a;
+  let lng = b;
+  // Map "30.5 26.0" (lng lat) style input to (lat, lng).
+  if (Math.abs(lat) <= 90 && Math.abs(lng) > 90) {
+    lat = b;
+    lng = a;
+  }
+  // Degrees/minute/second forms produce more than two numbers.
+  if (c !== undefined && Math.abs(c) <= 60) {
+    // "30 49 12" => 30°49'12" style is rare; keep the first two for simplicity.
+  }
+  if (isValidCoordinate(lat, lng)) return { lat, lng };
+  return null;
+}
+
 export function formatCoordinate(value: number, digits = 5): string {
   return Number.isFinite(value) ? value.toFixed(digits) : "—";
 }

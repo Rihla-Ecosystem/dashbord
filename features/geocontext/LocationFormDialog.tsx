@@ -162,8 +162,29 @@ function joinMetadata(items: Record<string, string>): string {
     .join("\n");
 }
 
-export function LocationFormDialog({ open, onOpenChange, location, initialCoords, reverse }: LocationFormDialogProps) {
-  const isEdit = !!location;
+export function LocationFormDialog({ open, onOpenChange, location: rawLocation, initialCoords, reverse }: LocationFormDialogProps) {
+  const isEdit = !!rawLocation;
+  const location: GeoLocation | null = rawLocation
+    ? {
+        ...rawLocation,
+        images: rawLocation.images ?? [],
+        videos: rawLocation.videos ?? [],
+        versions: rawLocation.versions ?? [],
+        auditLog: rawLocation.auditLog ?? [],
+        relatedLocationIds: rawLocation.relatedLocationIds ?? [],
+        tags: rawLocation.tags ?? [],
+        warnings: rawLocation.warnings ?? [],
+        nearby: rawLocation.nearby ?? [],
+        documents: rawLocation.documents ?? [],
+        attachments: rawLocation.attachments ?? [],
+        externalLinks: rawLocation.externalLinks ?? [],
+        interestingFacts: rawLocation.interestingFacts ?? [],
+        customMetadata: rawLocation.customMetadata ?? {},
+        openingHours: rawLocation.openingHours ?? {},
+        ticket: rawLocation.ticket ?? {},
+        contact: rawLocation.contact ?? {},
+      }
+    : null;
   const [tab, setTab] = useState<"general" | "tourism" | "cms">("general");
   const [values, setValues] = useState<FormValues>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});

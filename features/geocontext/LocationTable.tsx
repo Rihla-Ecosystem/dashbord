@@ -1,20 +1,23 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { CheckSquare, Eye, Edit3, MapPin, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/DataTable";
 import { CategoryBadge, RiskBadge, StatusBadge } from "./badges";
 import { formatRelative } from "@/utils";
-import type { GeoLocation } from "@/types/geocontext";
+import type { GeoLocation, GeoSort } from "@/types/geocontext";
 
 interface LocationTableProps {
   locations: GeoLocation[];
   isLoading: boolean;
   selectedId?: string;
+  sorting?: SortingState;
+  onSortingChange?: (sorting: SortingState) => void;
   onSelect: (location: GeoLocation) => void;
   onEdit: (location: GeoLocation) => void;
   onDelete: (location: GeoLocation) => void;
+  onRowContextMenu?: (location: GeoLocation, e: React.MouseEvent) => void;
   renderPublishToggle?: (location: GeoLocation) => React.ReactNode;
   canEdit: boolean;
   canDelete: boolean;
@@ -24,13 +27,25 @@ interface LocationTableProps {
   emptyDescription?: string;
 }
 
+/** Maps a TanStack sorting state to the API `GeoSort` shape (server-side). */
+export function toGeoSort(sorting: SortingState): GeoSort | undefined {
+  const first = sorting[0];
+  if (!first) return undefined;
+  const field = first.id as GeoSort["field"];
+  if (!["updatedAt", "nameEn", "safetyScore", "category"].includes(field)) return undefined;
+  return { field, order: first.desc ? "desc" : "asc" };
+}
+
 export function LocationTable({
   locations,
   isLoading,
   selectedId,
+  sorting,
+  onSortingChange,
   onSelect,
   onEdit,
   onDelete,
+  onRowContextMenu,
   renderPublishToggle,
   canEdit,
   canDelete,
@@ -99,6 +114,7 @@ export function LocationTable({
       accessorKey: "category",
       header: "Category",
       cell: ({ row }) => <CategoryBadge category={row.original.category} />,
+      sortingFn: (a, b) => a.original.category.localeCompare(b.original.category),
     },
     {
       accessorKey: "governorate",
@@ -157,8 +173,11 @@ export function LocationTable({
       columns={columns}
       data={locations}
       isLoading={isLoading}
+      sorting={sorting}
+      onSortingChange={onSortingChange}
       emptyTitle={emptyTitle}
       emptyDescription={emptyDescription}
+      onRowContextMenu={onRowContextMenu}
     />
   );
 }

@@ -149,7 +149,7 @@ function NearbyRow({ service, canEdit }: { service: NearbyService; canEdit: bool
 }
 
 export function LocationDetailsPanel({
-  location,
+  location: rawLocation,
   onEdit,
   onAddWarning,
   onDelete,
@@ -158,6 +158,25 @@ export function LocationDetailsPanel({
   canDelete,
   allLocations = [],
 }: LocationDetailsPanelProps) {
+  const location: GeoLocation = {
+    ...rawLocation,
+    images: rawLocation.images ?? [],
+    videos: rawLocation.videos ?? [],
+    versions: rawLocation.versions ?? [],
+    auditLog: rawLocation.auditLog ?? [],
+    relatedLocationIds: rawLocation.relatedLocationIds ?? [],
+    tags: rawLocation.tags ?? [],
+    warnings: rawLocation.warnings ?? [],
+    nearby: rawLocation.nearby ?? [],
+    documents: rawLocation.documents ?? [],
+    attachments: rawLocation.attachments ?? [],
+    externalLinks: rawLocation.externalLinks ?? [],
+    interestingFacts: rawLocation.interestingFacts ?? [],
+    customMetadata: rawLocation.customMetadata ?? {},
+    openingHours: rawLocation.openingHours ?? {},
+    ticket: rawLocation.ticket ?? {},
+    contact: rawLocation.contact ?? {},
+  };
   const [tab, setTab] = useState<Tab>("profile");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showAddService, setShowAddService] = useState(false);

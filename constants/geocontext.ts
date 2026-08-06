@@ -10,7 +10,7 @@ import type {
 export const DEFAULT_MAP_CENTER = { lat: 26.820553, lng: 30.802498 };
 export const DEFAULT_MAP_ZOOM = 6;
 export const EGYPT_MIN_ZOOM = 5;
-export const EGYPT_MAX_ZOOM = 13;
+export const EGYPT_MAX_ZOOM = 19;
 export const EGYPT_BBOX: [[number, number], [number, number]] = [
   [21.9, 24.7],
   [31.7, 35.6],
@@ -230,11 +230,127 @@ export const MAP_LAYERS: MapLayerDef[] = [
   { id: "risk_heatmap", label: "Risk Heatmap", kind: "overlay", visible: false },
 ];
 
+/**
+ * Production-grade basemaps.
+ *
+ * Adapted at runtime to use a MapTiler access token when `NEXT_PUBLIC_MAPTILER_KEY`
+ * is configured (256-tile raster styles that expose buildings, roads, landmarks and
+ * points of interest). Otherwise it falls back to fully keyless, production-ready
+ * Esri ArcGIS tile layers (World Street Map / World Imagery) and CARTO vector-style
+ * raster basemaps, all of which render labelled buildings and landmarks at high zoom.
+ */
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+
+const MAPTILER_STREETS = "https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=";
+const MAPTILER_SATELLITE = "https://api.maptiler.com/maps/satellite/256/{z}/{x}/{y}.png?key=";
+const MAPTILER_HYBRID = "https://api.maptiler.com/maps/hybrid/256/{z}/{x}/{y}.png?key=";
+const MAPTILER_LIGHT = "https://api.maptiler.com/maps/streets-light/256/{z}/{x}/{y}.png?key=";
+const MAPTILER_DARK = "https://api.maptiler.com/maps/darkmatter-dark/256/{z}/{x}/{y}.png?key=";
+
+const ESRI_STREET = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
+const ESRI_IMAGERY = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const ESRI_LABELS = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
+
+const CARTO_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const CARTO_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
 export const TILE_URLS = {
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  light: MAPTILER_KEY ? `${MAPTILER_LIGHT}${MAPTILER_KEY}` : CARTO_LIGHT,
+  detailed: MAPTILER_KEY ? `${MAPTILER_STREETS}${MAPTILER_KEY}` : ESRI_STREET,
+  dark: MAPTILER_KEY ? `${MAPTILER_DARK}${MAPTILER_KEY}` : CARTO_DARK,
+  satellite: MAPTILER_KEY ? `${MAPTILER_SATELLITE}${MAPTILER_KEY}` : ESRI_IMAGERY,
+  osm: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  osmHOT: "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+  topo: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
 };
+
+export type BasemapId = "street" | "light" | "dark" | "satellite" | "hybrid" | "osm";
+
+export interface BasemapDef {
+  id: BasemapId;
+  label: string;
+  short: string;
+  kind: "street" | "satellite";
+  url: string;
+  /** Optional transparent overlay tiles rendered above the base (e.g. labels). */
+  overlays?: string[];
+  /** Solid accent colour used for the switcher thumbnail swatch. */
+  swatch: string;
+}
+
+/**
+ * Order matters: the first "street" entry is the default basemap. MapTiler styles
+ * are preferred when a token is present, otherwise Esri / CARTO.
+ */
+export const BASEMAPS: BasemapDef[] = [
+  {
+    id: "street",
+    label: "Streets",
+    short: "Street",
+    kind: "street",
+    url: MAPTILER_KEY ? `${MAPTILER_STREETS}${MAPTILER_KEY}` : ESRI_STREET,
+    swatch: "linear-gradient(135deg,#aad3df,#e8edf0 45%,#f7c873 46%,#f3e3c3)",
+  },
+  {
+    id: "light",
+    label: "Light",
+    short: "Light",
+    kind: "street",
+    url: MAPTILER_KEY ? `${MAPTILER_LIGHT}${MAPTILER_KEY}` : CARTO_LIGHT,
+    swatch: "linear-gradient(135deg,#dce6ec,#f4f5f3 45%,#e9c78c 48%,#f6f1e4)",
+  },
+  {
+    id: "dark",
+    label: "Dark",
+    short: "Dark",
+    kind: "street",
+    url: MAPTILER_KEY ? `${MAPTILER_DARK}${MAPTILER_KEY}` : CARTO_DARK,
+    swatch: "linear-gradient(135deg,#1c2328,#2b343b 50%,#3a4650)",
+  },
+  {
+    id: "satellite",
+    label: "Satellite",
+    short: "Sat",
+    kind: "satellite",
+    url: MAPTILER_KEY ? `${MAPTILER_SATELLITE}${MAPTILER_KEY}` : ESRI_IMAGERY,
+    swatch: "linear-gradient(135deg,#0f2414,#2b5a2f 45%,#3f6b58 55%,#0c1c12)",
+  },
+  {
+    id: "hybrid",
+    label: "Satellite + Labels",
+    short: "Labels",
+    kind: "satellite",
+    url: MAPTILER_KEY ? `${MAPTILER_HYBRID}${MAPTILER_KEY}` : ESRI_IMAGERY,
+    overlays: [ESRI_LABELS],
+    swatch: "linear-gradient(135deg,#0f2414,#2b5a2f 45%,#3f6b58 60%,#e9c78c 70%,#0c1c12)",
+  },
+  {
+    id: "osm",
+    label: "OpenStreetMap",
+    short: "OSM",
+    kind: "street",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    swatch: "linear-gradient(135deg,#dcebf4,#f2efe9 45%,#f2d0a4 50%,#dff3e0)",
+  },
+];
+
+export function basemapById(id: BasemapId | string): BasemapDef {
+  return BASEMAPS.find((b) => b.id === id) ?? BASEMAPS[0];
+}
+
+/** Default basemap. Overridable per-user via workspace settings. */
+export const DEFAULT_BASEMAP: BasemapId = "street";
+
+/** Quick-focus shortcuts for the map (European-style lat/lng alias keys). */
+export const EGYPT_QUICK_CENTERS = {
+  egypt: { lat: 26.820553, lng: 30.802498, zoom: 6 },
+  cairo: { lat: 30.0444, lng: 31.2357, zoom: 12 },
+  alexandria: { lat: 31.2001, lng: 29.9187, zoom: 12 },
+  luxor: { lat: 25.6872, lng: 32.6396, zoom: 12 },
+  aswan: { lat: 24.0889, lng: 32.8998, zoom: 12 },
+  hurghada: { lat: 27.2579, lng: 33.8116, zoom: 12 },
+  sharm: { lat: 27.9158, lng: 34.33, zoom: 12 },
+} as const;
 
 export const GEO_STATUS_META: Record<
   "published" | "draft" | "unpublished",

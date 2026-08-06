@@ -140,6 +140,20 @@ export function useSetGeoLocationStatus(id: string) {
   });
 }
 
+/** Dynamic single-location status mutation (id passed at call time). */
+export function useSetGeoLocationStatusNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: GeoLocation["status"] }) =>
+      geocontextApi.setLocationStatus(id, status),
+    onSuccess: (location) => {
+      patchLocationCache(qc, location.id, location);
+      qc.invalidateQueries({ queryKey: ["geocontext", "locations"] });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
 export function useBulkGeoLocationStatus() {
   const qc = useQueryClient();
   return useMutation({

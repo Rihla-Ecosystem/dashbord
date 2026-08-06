@@ -131,6 +131,15 @@ export const geocontextApi = {
     return unwrapEnvelope<Boundary>(data);
   },
 
+  async updateBoundary(id: string, input: Partial<Omit<Boundary, "id" | "createdAt">>): Promise<Boundary> {
+    const { data } = await axiosInstance.put<unknown>(`/geocontext/boundaries/${id}`, input);
+    return unwrapEnvelope<Boundary>(data);
+  },
+
+  async deleteBoundary(id: string): Promise<void> {
+    await axiosInstance.delete(`/geocontext/boundaries/${id}`);
+  },
+
   async getGovernorates(): Promise<{ name: string; nameEn?: string; nameAr?: string }[]> {
     const { data } = await axiosInstance.get<unknown>("/geocontext/governorates");
     return unwrapEnvelope<{ name: string; nameEn?: string; nameAr?: string }[]>(data);

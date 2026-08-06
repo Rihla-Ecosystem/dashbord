@@ -1,79 +1,64 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  Activity,
+  AlertTriangle,
   BarChart3,
-  CheckCircle,
-  Download,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
   FileUp,
+  HeartPulse,
+  Keyboard,
   Landmark,
-  ListChecks,
-  MapPinPlus,
-  PauseCircle,
-  PlayCircle,
-  Plus,
-  ShieldAlert,
-  SlashSquare,
-  Target,
-  Trash2,
-  LayoutGrid,
-  Map,
   Layers,
-  Clock,
-  AlertCircle,
+  LayoutGrid,
+  Loader2,
+  Map,
+  MapPin,
+  MapPinPlus,
+  Pencil,
+  Plus,
+  Repeat,
+  Settings,
+  ShieldAlert,
+  Trash2,
+  UploadCloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { SearchBar } from "@/components/shared/SearchBar";
-import { FilterBar } from "@/components/shared/FilterBar";
-import { Pagination } from "@/components/shared/Pagination";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ErrorState } from "@/components/shared/ErrorState";
-import { DashboardCard } from "@/components/shared/DashboardCard";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useAuth } from "@/features/auth/auth-context";
 import { RoleGuard } from "@/features/auth/role-guard";
+import { useAuth } from "@/features/auth/auth-context";
 import {
-  LOCATION_CATEGORIES,
-  GOVERNORATES,
-  RISK_LEVELS,
-  RECENT_WINDOWS,
-  GEO_STATUS_META,
+  DEFAULT_BASEMAP,
   GEO_QUERY_KEYS,
+  type BasemapId,
 } from "@/constants/geocontext";
-import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/constants";
+import { DEFAULT_PAGE_SIZE } from "@/constants";
 import { geocontextApi } from "@/services/geocontext";
 import {
+  useGeoActivity,
+  useGeoAnalytics,
+  useGeoBoundaries,
+  useGeoLocation,
   useGeoLocations,
   useGeoRestrictedZones,
-  useGeoBoundaries,
-  useGeoAnalytics,
-  useGeoActivity,
+  useGovernorates,
+  useBulkDeleteGeoLocations,
+  useBulkGeoLocationStatus,
   useDeleteGeoLocation,
-  useSetGeoLocationStatus,
   useDeleteRestrictedZone,
   useImportGeoJSON,
-  useBulkGeoLocationStatus,
-  useBulkDeleteGeoLocations,
-  useGovernorates,
+  useSetGeoLocationStatusNow,
 } from "@/hooks/useGeocontext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { MAP_LAYERS } from "@/constants/geocontext";
 import dynamic from "next/dynamic";
 import type { MapDrawMode } from "@/features/geocontext/GeoContextMap";
 import { LocationFormDialog } from "@/features/geocontext/LocationFormDialog";
@@ -81,95 +66,124 @@ import { WarningFormDialog } from "@/features/geocontext/WarningFormDialog";
 import { RestrictedZoneFormDialog } from "@/features/geocontext/RestrictedZoneFormDialog";
 import { BoundaryFormDialog } from "@/features/geocontext/BoundaryFormDialog";
 import { LocationDetailsPanel } from "@/features/geocontext/LocationDetailsPanel";
-import { LocationTable } from "@/features/geocontext/LocationTable";
+import { ZoneDrawer } from "@/features/geocontext/ZoneDrawer";
+import { BoundaryDrawer } from "@/features/geocontext/BoundaryDrawer";
 import { LayerPanel } from "@/features/geocontext/LayerPanel";
-import { ActivityFeed } from "@/features/geocontext/ActivityFeed";
-import { GeoStatsGrid, CategoryPieChart, SeverityBarChart, TopUpdatedList } from "@/features/geocontext/charts";
+import { FloatingActions, type FloatingAction } from "@/features/geocontext/FloatingActions";
+import { ContextMenu, type ContextMenuState } from "@/features/geocontext/ContextMenu";
+import { toGeoSort } from "@/features/geocontext/LocationTable";
 import {
-  reverseGeocode,
+  GeoWorkspaceContext,
+  useGeoWorkspace,
+  type DeleteTarget,
+  type GeoWorkspace,
+  type WorkspaceSection,
+} from "@/features/geocontext/workspace-context";
+import { OverviewPanel } from "@/features/geocontext/panels/OverviewPanel";
+import { LocationsPanel } from "@/features/geocontext/panels/LocationsPanel";
+import { ZonesPanel } from "@/features/geocontext/panels/ZonesPanel";
+import { WarningsPanel } from "@/features/geocontext/panels/WarningsPanel";
+import { NearbyPanel } from "@/features/geocontext/panels/NearbyPanel";
+import { AnalyticsPanel } from "@/features/geocontext/panels/AnalyticsPanel";
+import { ActivityPanel } from "@/features/geocontext/panels/ActivityPanel";
+import { SettingsPanel } from "@/features/geocontext/panels/SettingsPanel";
+import {
+  downloadFile,
   locationsToFeatureCollection,
   parseGeoJSONFile,
-  downloadFile,
+  reverseGeocode,
 } from "@/features/geocontext/geoUtils";
 import { makeHeatPoints } from "@/features/geocontext/map/heat-layer";
-import { MAP_LAYERS } from "@/constants/geocontext";
-import { getErrorMessage, formatRelative } from "@/utils";
-import type { Boundary, GeoCoordinates, GeoFilters, GeoLocation, RestrictedZone, LocationWarning, NearbyService, ActivityEvent } from "@/types/geocontext";
+import type { SortingState } from "@tanstack/react-table";
+import type {
+  Boundary,
+  GeoCoordinates,
+  GeoFilters,
+  GeoJSONFeatureCollection,
+  GeoLocation,
+  GeoStatus,
+  RestrictedZone,
+} from "@/types/geocontext";
+import { getErrorMessage } from "@/utils";
 import { cn } from "@/lib/utils";
 
-type LocationDialogState = {
+const allLayersOn = Object.fromEntries(MAP_LAYERS.map((l) => [l.id, true]));
+
+const GeoContextMap = dynamic(
+  () => import("@/features/geocontext/GeoContextMap").then((m) => m.GeoContextMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center gap-2 bg-muted/20 text-muted-foreground">
+        <Loader2 className="size-5 animate-spin" />
+        <span className="text-sm">Loading map…</span>
+      </div>
+    ),
+  }
+);
+
+interface LocationDialogState {
   open: boolean;
   location: GeoLocation | null;
   initialCoords: { lat: number; lng: number } | null;
   reverse: Awaited<ReturnType<typeof reverseGeocode>> | null;
-};
+}
 
-const allLayersOn = Object.fromEntries(MAP_LAYERS.map((l) => [l.id, true]));
+interface WarningDialogState {
+  open: boolean;
+  location: GeoLocation | null;
+}
 
-const GeoContextMap = dynamic(() => import("@/features/geocontext/GeoContextMap").then((m) => m.GeoContextMap), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full min-h-[420px] items-center justify-center rounded-2xl border border-border/50 bg-muted/30">
-      <MapPinPlus className="size-8 text-muted-foreground" />
-      <span className="ml-2 text-sm text-muted-foreground">Loading map…</span>
-    </div>
-  ),
-});
-
-const TABS = [
-  { id: "overview", label: "Overview", icon: <LayoutGrid className="size-4" /> },
-  { id: "locations", label: "Locations", icon: <MapPinPlus className="size-4" /> },
-  { id: "map", label: "Interactive Map", icon: <Map className="size-4" /> },
-  { id: "zones", label: "Restricted Zones", icon: <SlashSquare className="size-4" /> },
-  { id: "boundaries", label: "Boundaries", icon: <Landmark className="size-4" /> },
-  { id: "warnings", label: "Warnings", icon: <ShieldAlert className="size-4" /> },
-  { id: "nearby", label: "Nearby Services", icon: <Target className="size-4" /> },
-  { id: "analytics", label: "Analytics", icon: <BarChart3 className="size-4" /> },
-  { id: "activity", label: "Activity", icon: <Clock className="size-4" /> },
-  { id: "import-export", label: "Import / Export", icon: <FileUp className="size-4" /> },
-];
-
-export default function GeoContextPage() {
+export default function GeocontextWorkspacePage() {
   return (
     <RoleGuard roles={["ADMIN", "MODERATOR"]}>
-      <GeoContextContent />
+      <GeoContextWorkspace />
     </RoleGuard>
   );
 }
 
-function GeoContextContent() {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole(["ADMIN"]);
-  const canEdit = hasRole(["ADMIN", "MODERATOR"]);
-  const canDelete = isAdmin;
+function GeoContextWorkspace() {
+  const { user } = useAuth();
+  const canEdit = user?.role === "ADMIN" || user?.role === "MODERATOR";
+  const canDelete = user?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN";
+  const qc = useQueryClient();
 
-  const [filters, setFilters] = useState<GeoFilters>({
-    search: "",
-    category: "",
-    governorate: "",
-    status: "",
-    risk: "",
-    hasWarnings: "",
-    updatedSince: "",
-  });
+  // --- section & navigation ---
+  const [section, setSection] = useState<WorkspaceSection>("overview");
+
+  // --- locations table state ---
+  const [filters, setFilters] = useState<GeoFilters>({ search: "" });
+  const [searchInput, setSearchInput] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // --- map state ---
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>(allLayersOn);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [drawMode, setDrawMode] = useState<MapDrawMode>(null);
+  const [editZonesMode, setEditZonesMode] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapId>(() => {
+    if (typeof window === "undefined") return DEFAULT_BASEMAP;
+    return (localStorage.getItem("geocontext-basemap") as BasemapId) || DEFAULT_BASEMAP;
+  });
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
+  // --- selections ---
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [selectedBoundaryId, setSelectedBoundaryId] = useState<string | null>(null);
+
+  // --- dialogs ---
   const [locationDialog, setLocationDialog] = useState<LocationDialogState>({
     open: false,
     location: null,
     initialCoords: null,
     reverse: null,
   });
-  const [warningDialog, setWarningDialog] = useState<{ open: boolean; locationId: string; locationName: string }>({
-    open: false,
-    locationId: "",
-    locationName: "",
-  });
+  const [warningDialog, setWarningDialog] = useState<WarningDialogState>({ open: false, location: null });
   const [zoneDialog, setZoneDialog] = useState<{ open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] }>({
     open: false,
     zone: null,
@@ -179,62 +193,213 @@ function GeoContextContent() {
     open: false,
     polygon: [],
   });
-  const [deleteTarget, setDeleteTarget] = useState<{ kind: "location" | "zone"; name: string; id: string } | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // --- workspace layout (responsive) ---
+  const [mobileView, setMobileView] = useState<"map" | "panel">("map");
+  const [panelWidth, setPanelWidth] = useState(468);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
 
-  const locationsQuery = useGeoLocations({ page, limit, filters });
+  // Persist basemap choice
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("geocontext-basemap", basemap);
+  }, [basemap]);
+
+  // Debounced search
+  useEffect(() => {
+    const t = setTimeout(() => setFilters((f) => ({ ...f, search: searchInput })), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // --- data queries ---
+  const locationsQuery = useGeoLocations({ page, limit, filters, sort: toGeoSort(sorting) });
   const zonesQuery = useGeoRestrictedZones();
   const boundariesQuery = useGeoBoundaries();
   const analyticsQuery = useGeoAnalytics();
   const activityQuery = useGeoActivity();
   const governoratesQuery = useGovernorates();
 
-  const deleteLocationMutation = useDeleteGeoLocation();
-  const deleteZoneMutation = useDeleteRestrictedZone();
-  const importGeoJSONMutation = useImportGeoJSON();
-  const bulkStatusMutation = useBulkGeoLocationStatus();
-  const bulkDeleteMutation = useBulkDeleteGeoLocations();
-  const queryClient = useQueryClient();
-
-  const hasSelection = selectedIds.size > 0;
-
   const locations = useMemo(() => locationsQuery.data?.data ?? [], [locationsQuery.data]);
-  const selectedLocation = selectedLocationId
-    ? (locations.find((l) => l.id === selectedLocationId) ?? null)
-    : null;
-  const selectedLocations = locations.filter((l) => selectedIds.has(l.id));
-
-  const heatPoints = useMemo(() => {
-    return makeHeatPoints(
-      locations
-        .filter((l) => l.safetyScore < 80)
-        .map((l) => ({ lat: l.lat, lng: l.lng, intensity: Math.max(0, (80 - l.safetyScore) / 100) }))
-    );
-  }, [locations]);
-
-  const toggleLayer = (id: string) =>
-    setVisibleLayers((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  const setFilter = <K extends keyof GeoFilters>(key: K, value: GeoFilters[K]) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
-  };
-
-  const hasActiveFilters = Boolean(
-    filters.search || filters.category || filters.governorate || filters.status || filters.risk || filters.hasWarnings || filters.updatedSince
+  const zones = zonesQuery.data ?? [];
+  const boundaries = boundariesQuery.data ?? [];
+  const analytics = analyticsQuery.data;
+  const activity = activityQuery.data ?? [];
+  const governorateNames = useMemo(
+    () => (governoratesQuery.data ?? []).map((g) => g.name),
+    [governoratesQuery.data]
   );
 
+  // --- single-location fallback for the details drawer ---
+  const selectedLocation = useMemo(
+    () => locations.find((l) => l.id === selectedLocationId) ?? null,
+    [locations, selectedLocationId]
+  );
+  const needsDetailFetch = !!selectedLocationId && !selectedLocation;
+  const detailQuery = useGeoLocation(needsDetailFetch ? selectedLocationId : null);
+  const resolvedLocation = selectedLocation ?? detailQuery.data ?? null;
+
+  const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
+  const selectedBoundary = boundaries.find((b) => b.id === selectedBoundaryId) ?? null;
+
+  const selectedLocations = useMemo(
+    () => locations.filter((l) => selectedIds.has(l.id)),
+    [locations, selectedIds]
+  );
+
+  const heatPoints = useMemo(
+    () => makeHeatPoints(locations.map((l) => ({ lat: l.lat, lng: l.lng, intensity: 1 }))),
+    [locations]
+  );
+
+  // --- mutations ---
+  const deleteLocationMutation = useDeleteGeoLocation();
+  const deleteZoneMutation = useDeleteRestrictedZone();
+  const bulkStatusMutation = useBulkGeoLocationStatus();
+  const bulkDeleteMutation = useBulkDeleteGeoLocations();
+  const importMutation = useImportGeoJSON();
+  const statusNowMutation = useSetGeoLocationStatusNow();
+
+  const deleteBoundaryMutation = useMutation({
+    mutationFn: (id: string) => geocontextApi.deleteBoundary(id),
+    onSuccess: (_, id) => {
+      qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) => old?.filter((b) => b.id !== id) ?? []);
+      if (selectedBoundaryId === id) setSelectedBoundaryId(null);
+      toast.success("Boundary deleted");
+    },
+  });
+
+  const zoneUpdateMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<RestrictedZone> }) =>
+      geocontextApi.updateRestrictedZone(id, patch),
+    onSuccess: (updated) => {
+      qc.setQueryData<RestrictedZone[]>(GEO_QUERY_KEYS.restrictedZones, (old) =>
+        old?.map((z) => (z.id === updated.id ? updated : z)) ?? []
+      );
+    },
+  });
+
+  // --- handlers ---
+  const setFilter = <K extends keyof GeoFilters>(key: K, value: GeoFilters[K]) => {
+    setFilters((f) => ({ ...f, [key]: value }));
+    setPage(1);
+  };
   const clearFilters = () => {
-    setFilters({ search: "", category: "", governorate: "", status: "", risk: "", hasWarnings: "", updatedSince: "" });
+    setFilters({ search: filters.search });
+    setSearchInput(filters.search);
+    setPage(1);
+  };
+  const hasActiveFilters =
+    !!(filters.category || filters.governorate || filters.status || filters.risk) ||
+    filters.hasWarnings === true;
+  const applyQuickFilter = (patch: Partial<GeoFilters>) => {
+    setFilters((f) => ({ ...f, ...patch }));
     setPage(1);
   };
 
-  const openCreateLocation = () => setLocationDialog({ open: true, location: null, initialCoords: null, reverse: null });
+  const toggleLayer = (id: string) => setVisibleLayers((v) => ({ ...v, [id]: !v[id] }));
+  const resetLayers = () => setVisibleLayers(allLayersOn);
+
+  const selectLocation = (id: string | null) => {
+    setSelectedLocationId(id);
+    setContextMenu(null);
+  };
+  const selectZone = (id: string | null) => {
+    setSelectedZoneId(id);
+    setContextMenu(null);
+  };
+  const selectBoundary = (id: string | null) => {
+    setSelectedBoundaryId(id);
+    setContextMenu(null);
+  };
+
+  const openCreateLocation = () => {
+    setSection("map");
+    setLocationDialog({ open: true, location: null, initialCoords: null, reverse: null });
+  };
+  const openEditLocation = (location: GeoLocation) => {
+    setLocationDialog({
+      open: true,
+      location,
+      initialCoords: location ? { lat: location.lat, lng: location.lng } : null,
+      reverse: null,
+    });
+  };
+  const openWarningDialog = (location: GeoLocation) => {
+    setWarningDialog({ open: true, location });
+  };
+  const openZoneDialog = (zone?: RestrictedZone, polygon?: GeoCoordinates[]) => {
+    setZoneDialog({ open: true, zone: zone ?? null, polygon: polygon ?? [] });
+  };
+  const openBoundaryDialog = (polygon?: GeoCoordinates[]) => {
+    setBoundaryDialog({ open: true, polygon: polygon ?? [] });
+  };
+
+  const toggleLocationStatus = (location: GeoLocation) => {
+    const next: GeoStatus = location.status === "published" ? "unpublished" : "published";
+    statusNowMutation.mutate(
+      { id: location.id, status: next },
+      { onSuccess: () => toast.success(`Location ${next}`) }
+    );
+  };
+
+  const toggleZoneActive = (zone: RestrictedZone) =>
+    zoneUpdateMutation.mutate({ id: zone.id, patch: { active: !zone.active } });
+  const updateZonePolygon = (id: string, coords: GeoCoordinates[]) =>
+    zoneUpdateMutation.mutate({ id, patch: { polygon: coords } });
+
+  const handleBulkStatus = (status: GeoStatus) => {
+    if (!selectedIds.size) return;
+    bulkStatusMutation.mutate(
+      { ids: [...selectedIds], status },
+      { onSuccess: () => { setSelectedIds(new Set()); toast.success("Locations updated"); } }
+    );
+  };
+  const handleBulkDelete = () => {
+    if (!selectedIds.size) return;
+    setDeleteTarget({ kind: "location", name: `${selectedIds.size} selected locations`, id: "__bulk__" });
+  };
+  const handleBulkExport = () => {
+    if (!selectedIds.size) return;
+    const fc = locationsToFeatureCollection(selectedLocations);
+    downloadFile("geocontext-selected.geojson", JSON.stringify(fc, null, 2));
+    setSelectedIds(new Set());
+    toast.success(`Exported ${selectedLocations.length} locations to GeoJSON`);
+  };
+  const handleExport = async () => {
+    try {
+      const fc = await geocontextApi.exportGeoJSON();
+      downloadFile("geocontext-export.geojson", JSON.stringify(fc, null, 2));
+      toast.success("Exported GeoContext data to GeoJSON");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+  const handleImport = async (file: File) => {
+    try {
+      const fc = await parseGeoJSONFile(file);
+      importMutation.mutate(fc, {
+        onSuccess: (r) => { toast.success(`Imported ${r.imported} locations`); setSection("locations"); },
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+  const handleImportUrl = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const fc = (await res.json()) as GeoJSONFeatureCollection;
+      if (fc.type !== "FeatureCollection") throw new Error("Not a GeoJSON FeatureCollection");
+      importMutation.mutate(fc, {
+        onSuccess: (r) => { toast.success(`Imported ${r.imported} locations`); setSection("locations"); },
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
 
   const handleMapClick = async (latlng: { lat: number; lng: number }) => {
-    if (drawMode !== "location") return;
     setDrawMode(null);
     let reverse: Awaited<ReturnType<typeof reverseGeocode>> | null = null;
     try {
@@ -242,847 +407,796 @@ function GeoContextContent() {
     } catch {
       reverse = null;
     }
+    setContextMenu(null);
     setLocationDialog({ open: true, location: null, initialCoords: latlng, reverse });
   };
 
-  const handlePolygonDrawn = (coords: GeoCoordinates[]) => {
-    if (drawMode === "zone") {
-      setDrawMode(null);
-      setZoneDialog({ open: true, zone: null, polygon: coords });
-    } else if (drawMode === "boundary") {
-      setDrawMode(null);
-      setBoundaryDialog({ open: true, polygon: coords });
-    }
-  };
+  const requestDelete = (target: DeleteTarget | null) => setDeleteTarget(target);
 
-  const handleDelete = () => {
+  const confirmDelete = () => {
     if (!deleteTarget) return;
-    if (deleteTarget.kind === "location") {
-      deleteLocationMutation.mutate(deleteTarget.id, {
+    const t = deleteTarget;
+    if (t.kind === "location") {
+      if (t.id === "__bulk__") {
+        bulkDeleteMutation.mutate([...selectedIds], {
+          onSuccess: () => {
+            setSelectedIds(new Set());
+            toast.success("Selected locations deleted");
+          },
+        });
+      } else {
+        deleteLocationMutation.mutate(t.id, {
+          onSuccess: () => {
+            if (selectedLocationId === t.id) setSelectedLocationId(null);
+            toast.success("Location deleted");
+          },
+        });
+      }
+    } else if (t.kind === "zone") {
+      deleteZoneMutation.mutate(t.id, {
         onSuccess: () => {
-          toast.success(`"${deleteTarget.name}" deleted`);
-          if (selectedLocationId === deleteTarget.id) setSelectedLocationId(null);
+          if (selectedZoneId === t.id) setSelectedZoneId(null);
+          toast.success("Restricted zone deleted");
         },
-        onError: (error) => toast.error(getErrorMessage(error)),
       });
-    } else {
-      deleteZoneMutation.mutate(deleteTarget.id, {
-        onSuccess: () => toast.success(`Zone "${deleteTarget.name}" deleted`),
-        onError: (error) => toast.error(getErrorMessage(error)),
-      });
+    } else if (t.kind === "boundary") {
+      deleteBoundaryMutation.mutate(t.id);
     }
     setDeleteTarget(null);
   };
 
-  const handleExport = async () => {
-    try {
-      const result = await geocontextApi.getLocations({ limit: 100000 });
-      const fc = locationsToFeatureCollection(result.data);
-      downloadFile("geocontext-locations.geojson", JSON.stringify(fc, null, 2));
-      toast.success(`Exported ${result.data.length} locations to GeoJSON`);
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  };
-
-  const handleImport = async (file: File) => {
-    try {
-      const fc = await parseGeoJSONFile(file);
-      importGeoJSONMutation.mutate(fc, {
-        onSuccess: (result) => toast.success(`Imported ${result.imported} locations`),
-        onError: (error) => toast.error(getErrorMessage(error)),
-      });
-    } catch (error) {
-      toast.error(getErrorMessage(error));
-    }
-  };
-
-  const handleBulkStatus = (status: "published" | "unpublished" | "draft") => {
-    if (!hasSelection) return;
-    bulkStatusMutation.mutate(
-      { ids: [...selectedIds], status },
-      {
-        onSuccess: (result) => {
-          toast.success(`Published state set for ${result.updated} location(s)`);
-          setSelectedIds(new Set());
+  const openLocationContextMenu = (location: GeoLocation, point: { x: number; y: number }) => {
+    setContextMenu({
+      x: point.x,
+      y: point.y,
+      items: [
+        {
+          key: "view",
+          label: "View details",
+          icon: <Eye className="size-4" />,
+          onSelect: () => selectLocation(location.id),
         },
-        onError: (error) => toast.error(getErrorMessage(error)),
-      }
-    );
-  };
-
-  const handleBulkDelete = () => {
-    if (!hasSelection) return;
-    bulkDeleteMutation.mutate([...selectedIds], {
-      onSuccess: (result) => {
-        toast.success(`Deleted ${result.deleted} location(s)`);
-        setSelectedIds(new Set());
-      },
-      onError: (error) => toast.error(getErrorMessage(error)),
+        {
+          key: "edit",
+          label: "Edit location",
+          icon: <Pencil className="size-4" />,
+          disabled: !canEdit,
+          onSelect: () => openEditLocation(location),
+        },
+        { key: "divider1", divider: true },
+        {
+          key: "status",
+          label: location.status === "published" ? "Unpublish" : "Publish",
+          onSelect: () => toggleLocationStatus(location),
+        },
+        { key: "divider2", divider: true },
+        {
+          key: "delete",
+          label: "Delete",
+          icon: <Trash2 className="size-4" />,
+          destructive: true,
+          disabled: !canDelete,
+          onSelect: () => handleDelete({ kind: "location", id: location.id, name: location.nameEn }),
+        },
+      ],
     });
   };
 
-  const handleBulkExport = () => {
-    if (!selectedLocations.length) return;
-    const fc = locationsToFeatureCollection(selectedLocations);
-    downloadFile("geocontext-selection.geojson", JSON.stringify(fc, null, 2));
-    toast.success(`Exported ${selectedLocations.length} selected location(s)`);
+  const openZoneContextMenu = (zone: RestrictedZone, point: { x: number; y: number }) => {
+    setContextMenu({
+      x: point.x,
+      y: point.y,
+      items: [
+        { key: "view", label: "View zone", icon: <Eye className="size-4" />, onSelect: () => selectZone(zone.id) },
+        {
+          key: "edit",
+          label: "Edit zone",
+          icon: <Pencil className="size-4" />,
+          disabled: !canEdit,
+          onSelect: () => openZoneDialog(zone),
+        },
+        {
+          key: "polygon",
+          label: "Edit polygon",
+          icon: <Landmark className="size-4" />,
+          disabled: !canEdit,
+          onSelect: () => { setEditZonesMode(true); setSection("map"); },
+        },
+        { key: "d1", divider: true },
+        {
+          key: "delete",
+          label: "Delete",
+          icon: <Trash2 className="size-4" />,
+          destructive: true,
+          disabled: !canDelete,
+          onSelect: () => handleDelete({ kind: "zone", id: zone.id, name: zone.name }),
+        },
+      ],
+    });
   };
 
-  const allWarnings = useMemo(() => {
-    return locations.flatMap((l) =>
-      l.warnings.map((w) => ({ ...w, locationId: l.id, locationName: l.nameEn }))
-    );
-  }, [locations]);
+  const handleDelete = (target: DeleteTarget) => setDeleteTarget(target);
 
-  const allNearbyServices = useMemo(() => {
-    return locations.flatMap((l) =>
-      l.nearby.map((s) => ({ ...s, locationName: l.nameEn }))
-    );
-  }, [locations]);
+  const requestDraw = (mode: Exclude<MapDrawMode, null>) => {
+    setDrawMode(mode);
+    setSection("map");
+    setPanelCollapsed(false);
+    setMobileView("map");
+  };
 
-  const governorateNames = useMemo(() => {
-    const fetched = governoratesQuery.data?.map((g) => g.name) ?? [];
-    return fetched.length ? fetched : GOVERNORATES;
-  }, [governoratesQuery.data]);
-
-  const [activeTab, setActiveTab] = useState("overview");
-
-  const tabActions = () => {
-    switch (activeTab) {
-      case "locations":
-        return [
-          <Button key="add" onClick={openCreateLocation}>
-            <Plus className="size-4" />
-            Add location
-          </Button>,
-          <Button key="map" variant="outline" onClick={() => setDrawMode(drawMode === "location" ? null : "location")}>
-            <MapPinPlus className="size-4" />
-            Place on map
-          </Button>,
-          <Button key="import" variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="size-4" />
-            Import GeoJSON
-          </Button>,
-        ];
-      case "zones":
-        return [
-          <Button key="draw" variant="outline" onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")}>
-            <Plus className="size-4" />
-            Draw zone
-          </Button>,
-        ];
-      case "boundaries":
-        return [
-          <Button key="draw" variant="outline" onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")}>
-            <Plus className="size-4" />
-            Draw boundary
-          </Button>,
-        ];
-      case "import-export":
-        return [
-          <Button key="export" variant="outline" onClick={handleExport}>
-            <Download className="size-4" />
-            Export all
-          </Button>,
-        ];
-      default:
-        return [];
+  const handlePolygonDrawn = (coords: GeoCoordinates[]) => {
+    if (drawMode === "zone") {
+      setZoneDialog({ open: true, zone: null, polygon: coords });
+    } else if (drawMode === "boundary") {
+      setBoundaryDialog({ open: true, polygon: coords });
+    } else {
+      return;
     }
+    setDrawMode(null);
+  };
+
+  // --- keyboard shortcuts ---
+  useKeyboardShortcuts([
+    { keys: "1", handler: () => setSection("overview") },
+    { keys: "2", handler: () => setSection("map") },
+    { keys: "3", handler: () => setSection("locations") },
+    { keys: "4", handler: () => setSection("zones") },
+    { keys: "5", handler: () => setSection("warnings") },
+    { keys: "6", handler: () => setSection("nearby") },
+    { keys: "7", handler: () => setSection("analytics") },
+    { keys: "8", handler: () => setSection("activity") },
+    { keys: "9", handler: () => setSection("settings") },
+    { keys: "?", handler: () => setShortcutsOpen(true) },
+  ]);
+
+  const workspace: GeoWorkspace = {
+    section,
+    setSection,
+    canEdit,
+    canDelete,
+    isAdmin,
+    locations,
+    zones,
+    boundaries,
+    analytics,
+    activity,
+    governorateNames,
+    isLocationsLoading: locationsQuery.isLoading,
+    locationsError: locationsQuery.error ?? null,
+    refetchLocations: () => void locationsQuery.refetch(),
+    filters,
+    setFilter,
+    clearFilters,
+    hasActiveFilters,
+    filtersOpen,
+    setFiltersOpen,
+    applyQuickFilter,
+    searchInput,
+    onSearchInputChange: setSearchInput,
+    page,
+    setPage,
+    limit,
+    setLimit,
+    total: locationsQuery.data?.total ?? 0,
+    totalPages: locationsQuery.data?.totalPages ?? 1,
+    sorting,
+    setSorting,
+    selectedLocationId,
+    selectLocation,
+    selectedZoneId,
+    selectZone,
+    selectedBoundaryId,
+    selectBoundary,
+    selectedIds,
+    setSelectedIds: (ids) => setSelectedIds(new Set(ids)),
+    hasSelection: selectedIds.size > 0,
+    selectedLocations,
+    visibleLayers,
+    toggleLayer,
+    resetLayers,
+    drawMode,
+    setDrawMode,
+    editZonesMode,
+    setEditZonesMode,
+    basemap,
+    setBasemap: (id) => setBasemap(id),
+    openCreateLocation,
+    openEditLocation,
+    openWarningDialog,
+    openZoneDialog,
+    openBoundaryDialog,
+    deleteTarget,
+    requestDelete,
+    confirmDelete,
+    isDeleting: deleteLocationMutation.isPending || bulkDeleteMutation.isPending || deleteZoneMutation.isPending || deleteBoundaryMutation.isPending,
+    handleBulkStatus,
+    handleBulkDelete,
+    handleBulkExport,
+    handleExport,
+    handleImport,
+    handleImportUrl,
+    toggleLocationStatus,
+    toggleZoneActive,
+    updateZonePolygon,
+    contextMenu,
+    setContextMenu,
+    mobileView,
+    setMobileView,
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader
-        title="GeoContext"
-        description="Egypt's geographic knowledge base — locations, restricted zones, warnings and insights."
-      >
-        {tabActions()}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".geojson,.json,application/geo+json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleImport(file);
-            e.target.value = "";
-          }}
-        />
-      </PageHeader>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-1 flex-wrap">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} icon={tab.icon}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="overview">
-          <div className="space-y-6">
-            <GeoStatsGrid analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <CategoryPieChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-              <SeverityBarChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-              <TopUpdatedList analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-            </div>
-            <DashboardCard title="Recent activity" description="Latest actions in GeoContext">
-              <ActivityFeed
-                events={activityQuery.data ?? []}
-                isLoading={activityQuery.isLoading}
-                className="h-[320px]"
-              />
-            </DashboardCard>
+    <GeoWorkspaceContext.Provider value={workspace}>
+      <div className="flex flex-col gap-4">
+        <PageHeader title="GeoContext workspace" description="Monitor, edit and analyse Egypt's points of interest on a live map.">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShortcutsOpen(true)}>
+              <Keyboard className="size-4" /> Shortcuts
+            </Button>
+            <Button size="sm" onClick={openCreateLocation}>
+              <Plus className="size-4" /> Add location
+            </Button>
           </div>
-        </TabsContent>
+        </PageHeader>
 
-        <TabsContent value="locations">
-          <div className="space-y-6">
-            <FilterBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
-              <SearchBar value={filters.search} onChange={(v) => setFilter("search", v)} placeholder="Search locations..." />
-              <Select value={filters.category} onValueChange={(v) => setFilter("category", v ?? "")}>
-                <SelectTrigger className="h-10 w-44 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All categories</SelectItem>
-                  {LOCATION_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.governorate} onValueChange={(v) => setFilter("governorate", v ?? "")}>
-                <SelectTrigger className="h-10 w-44 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All governorates</SelectItem>
-                  {governorateNames.map((g) => (
-                    <SelectItem key={g} value={g}>{g}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.status} onValueChange={(v) => setFilter("status", v ?? "")}>
-                <SelectTrigger className="h-10 w-40 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
-                  {Object.entries(GEO_STATUS_META).map(([value, meta]) => (
-                    <SelectItem key={value} value={value}>{meta.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.risk} onValueChange={(v) => setFilter("risk", v ?? "")}>
-                <SelectTrigger className="h-10 w-40 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Any risk</SelectItem>
-                  {RISK_LEVELS.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filters.updatedSince} onValueChange={(v) => setFilter("updatedSince", v ?? "")}>
-                <SelectTrigger className="h-10 w-40 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Any time</SelectItem>
-                  {RECENT_WINDOWS.map((w) => (
-                    <SelectItem key={w.value} value={w.value}>{w.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={filters.hasWarnings === "" ? "" : filters.hasWarnings ? "true" : "false"}
-                onValueChange={(v) => setFilter("hasWarnings", v === null ? "" : v === "true")}
-              >
-                <SelectTrigger className="h-10 w-40 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All</SelectItem>
-                  <SelectItem value="true">With active warnings</SelectItem>
-                  <SelectItem value="false">Without warnings</SelectItem>
-                </SelectContent>
-              </Select>
-            </FilterBar>
+        <TopToolbar section={section} setSection={setSection} />
 
-            <div className="grid gap-6 xl:grid-cols-3">
-              <div className="space-y-6 xl:col-span-2">
-                <div className="relative rounded-2xl border border-border/50 shadow-sm">
-                  <GeoContextMap
-                    locations={locations}
-                    zones={zonesQuery.data ?? []}
-                    boundaries={boundariesQuery.data ?? []}
-                    visibleLayers={visibleLayers}
-                    selectedLocationId={selectedLocationId}
-                    drawMode={drawMode}
-                    heatPoints={heatPoints}
-                    onSelectLocation={setSelectedLocationId}
-                    onMapClick={handleMapClick}
-                    onPolygonDrawn={handlePolygonDrawn}
-                  />
-                  <div className="absolute right-3 top-3 z-[500] flex flex-col gap-1.5">
-                    <ToolButton active={drawMode === "location"} onClick={() => setDrawMode(drawMode === "location" ? null : "location")} label="Place location" icon={<Target className="size-4" />} />
-                    <ToolButton active={drawMode === "zone"} onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")} label="Draw restricted zone" icon={<SlashSquare className="size-4" />} />
-                    <ToolButton active={drawMode === "boundary"} onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")} label="Draw boundary" icon={<Landmark className="size-4" />} />
-                  </div>
-                  {drawMode === "location" && (
-                    <div className="absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg">
-                      Click anywhere on the map to place a location
-                    </div>
-                  )}
-                </div>
-                <LayerPanel visibleLayers={visibleLayers} onToggle={toggleLayer} />
-              </div>
+        <div className="relative flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-17rem)] lg:flex-row">
+          {/* left section rail */}
+          <SectionRail section={section} setSection={setSection} />
 
-              <div className="space-y-6">
-                {selectedLocation ? (
-                  <LocationDetailsPanel
-                    location={selectedLocation}
-                    allLocations={locations}
-                    onEdit={() => setLocationDialog({ open: true, location: selectedLocation, initialCoords: null, reverse: null })}
-                    onAddWarning={() => setWarningDialog({ open: true, locationId: selectedLocation.id, locationName: selectedLocation.nameEn })}
-                    onDelete={() => setDeleteTarget({ kind: "location", name: selectedLocation.nameEn, id: selectedLocation.id })}
-                    onClose={() => setSelectedLocationId(null)}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                  />
-                ) : (
-                  <ActivityFeed events={activityQuery.data ?? []} isLoading={activityQuery.isLoading} className="xl:h-[480px] xl:overflow-y-auto" />
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {locationsQuery.isError ? (
-                <ErrorState
-                  title="Failed to load locations"
-                  message={getErrorMessage(locationsQuery.error)}
-                  onRetry={() => locationsQuery.refetch()}
-                />
-              ) : (
-                <>
-                  {hasSelection && (
-                    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <ListChecks className="size-4 text-primary" />
-                        {selectedIds.size} selected
-                      </span>
-                      <div className="ml-auto flex flex-wrap items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("published")} disabled={bulkStatusMutation.isPending}>
-                          <PlayCircle className="size-4 text-emerald-500" />
-                          Publish
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("draft")} disabled={bulkStatusMutation.isPending}>
-                          Set draft
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleBulkStatus("unpublished")} disabled={bulkStatusMutation.isPending}>
-                          <PauseCircle className="size-4 text-amber-500" />
-                          Unpublish
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleBulkExport}>
-                          <Download className="size-4" />
-                          Export
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleteMutation.isPending}>
-                          <Trash2 className="size-4" />
-                          Delete
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  <LocationTable
-                    locations={locations}
-                    isLoading={locationsQuery.isLoading}
-                    selectedId={selectedLocationId ?? undefined}
-                    onSelect={(location) => setSelectedLocationId(location.id)}
-                    onEdit={(location) => setLocationDialog({ open: true, location, initialCoords: null, reverse: null })}
-                    onDelete={(location) => setDeleteTarget({ kind: "location", name: location.nameEn, id: location.id })}
-                    renderPublishToggle={(location) => <PublishButton location={location} canEdit={canEdit} />}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    selectedIds={selectedIds}
-                    onSelectionChange={setSelectedIds}
-                  />
-                  <Pagination
-                    page={page}
-                    totalPages={locationsQuery.data?.totalPages ?? 1}
-                    total={locationsQuery.data?.total ?? 0}
-                    limit={limit}
-                    onPageChange={setPage}
-                    onLimitChange={(l) => {
-                      setLimit(l);
-                      setPage(1);
-                    }}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="map">
-          <div className="h-[calc(100vh-12rem)] rounded-2xl border border-border/50 shadow-sm">
+          {/* map pane */}
+          <div
+            className={cn(
+              "relative min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-border bg-popover shadow-sm",
+              mobileView === "panel" && "hidden lg:flex"
+            )}
+          >
             <GeoContextMap
+              className="absolute inset-0 rounded-none"
               locations={locations}
-              zones={zonesQuery.data ?? []}
-              boundaries={boundariesQuery.data ?? []}
+              zones={zones}
+              boundaries={boundaries}
               visibleLayers={visibleLayers}
               selectedLocationId={selectedLocationId}
+              selectedZoneId={selectedZoneId}
+              selectedBoundaryId={selectedBoundaryId}
               drawMode={drawMode}
+              editZonesMode={editZonesMode}
+              basemap={basemap}
+              onBasemapChange={setBasemap}
               heatPoints={heatPoints}
-              onSelectLocation={setSelectedLocationId}
+              onSelectLocation={(id) => {
+                setSelectedLocationId(id);
+                setMobileView("panel");
+              }}
+              onSelectZone={selectZone}
+              onSelectBoundary={selectBoundary}
               onMapClick={handleMapClick}
               onPolygonDrawn={handlePolygonDrawn}
+              onZonePolygonEdited={updateZonePolygon}
+              onLocationContextMenu={openLocationContextMenu}
+              onZoneContextMenu={openZoneContextMenu}
             />
-            <LayerPanel visibleLayers={visibleLayers} onToggle={toggleLayer} />
-          </div>
-        </TabsContent>
 
-        <TabsContent value="zones">
-          <DashboardCard
-            title="Restricted zones"
-            description="Military & safety restrictions"
-            action={
-              <Button size="sm" variant="outline" onClick={() => setDrawMode(drawMode === "zone" ? null : "zone")}>
-                <Plus className="size-4" />
-                Draw zone
-              </Button>
-            }
-          >
-            {zonesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : zonesQuery.data?.length ? (
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="whitespace-nowrap">Name</TableHead>
-                      <TableHead className="whitespace-nowrap">Type</TableHead>
-                      <TableHead className="whitespace-nowrap">Risk</TableHead>
-                      <TableHead className="whitespace-nowrap">Source</TableHead>
-                      <TableHead className="whitespace-nowrap">Active</TableHead>
-                      <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {zonesQuery.data.map((zone) => (
-                      <TableRow key={zone.id} className="hover:bg-muted/20">
-                        <TableCell className="whitespace-nowrap font-medium">{zone.name}</TableCell>
-                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{zone.restrictionType.replace("_", " ")}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <RiskChip level={zone.riskLevel} />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{zone.source}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {zone.active ? <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Active</span> : <span className="text-xs text-muted-foreground">Inactive</span>}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => setZoneDialog({ open: true, zone, polygon: zone.polygon })}
-                              disabled={!canEdit}
-                              title="Edit zone"
-                            >
-                              <Edit3Icon className="size-4" />
-                            </Button>
-                            <Button
-                              size="icon-sm"
-                              variant="ghost"
-                              onClick={() => setDeleteTarget({ kind: "zone", name: zone.name, id: zone.id })}
-                              disabled={!canDelete}
-                              title="Delete zone"
-                            >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No restricted zones yet.</p>
-            )}
-          </DashboardCard>
-        </TabsContent>
-
-        <TabsContent value="boundaries">
-          <DashboardCard
-            title="Boundaries"
-            description="Governorate & administrative borders"
-            action={
-              <Button size="sm" variant="outline" onClick={() => setDrawMode(drawMode === "boundary" ? null : "boundary")}>
-                <Plus className="size-4" />
-                Draw boundary
-              </Button>
-            }
-          >
-            {boundariesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : boundariesQuery.data?.length ? (
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="whitespace-nowrap">Name</TableHead>
-                      <TableHead className="whitespace-nowrap">Type</TableHead>
-                      <TableHead className="whitespace-nowrap">Updated</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {boundariesQuery.data.map((boundary) => (
-                      <TableRow key={boundary.id} className="hover:bg-muted/20">
-                        <TableCell className="whitespace-nowrap font-medium">{boundary.name}</TableCell>
-                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{boundary.type}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{boundary.createdAt}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No boundaries drawn yet.</p>
-            )}
-          </DashboardCard>
-        </TabsContent>
-
-        <TabsContent value="warnings">
-          <DashboardCard title="All warnings" description="Active & historical warnings across locations">
-            {locationsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : allWarnings.length ? (
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="whitespace-nowrap">Title</TableHead>
-                      <TableHead className="whitespace-nowrap">Location</TableHead>
-                      <TableHead className="whitespace-nowrap">Severity</TableHead>
-                      <TableHead className="whitespace-nowrap">Category</TableHead>
-                      <TableHead className="whitespace-nowrap">Status</TableHead>
-                      <TableHead className="whitespace-nowrap">Created</TableHead>
-                      <TableHead className="whitespace-nowrap text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allWarnings.map((warning) => (
-                      <TableRow key={warning.id} className="hover:bg-muted/20">
-                        <TableCell className="whitespace-nowrap font-medium">{warning.title}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{warning.locationName}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <WarningSeverityBadge severity={warning.severity} />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{warning.category.replace("_", " ")}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {warning.active ? <CheckCircle className="size-4 text-emerald-500" /> : <AlertCircle className="size-4 text-muted-foreground" />}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{formatRelative(warning.createdAt)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-right">
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (canEdit) {
-                                void geocontextApi.deleteWarning(warning.locationId, warning.id)
-                                  .then(() => {
-                                    toast.success("Warning removed");
-                                    queryClient.invalidateQueries({ queryKey: ["geocontext", "locations"] });
-                                    queryClient.invalidateQueries({ queryKey: GEO_QUERY_KEYS.analytics });
-                                  })
-                                  .catch((err) => toast.error(getErrorMessage(err)));
-                              }
-                            }}
-                            disabled={!canEdit}
-                            title="Delete warning"
-                          >
-                            <Trash2 className="size-3.5 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No warnings found.</p>
-            )}
-          </DashboardCard>
-        </TabsContent>
-
-        <TabsContent value="nearby">
-          <DashboardCard title="Nearby services" description="Services associated with each location">
-            {locationsQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : allNearbyServices.length ? (
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="whitespace-nowrap">Name</TableHead>
-                      <TableHead className="whitespace-nowrap">Location</TableHead>
-                      <TableHead className="whitespace-nowrap">Type</TableHead>
-                      <TableHead className="whitespace-nowrap">Distance (km)</TableHead>
-                      <TableHead className="whitespace-nowrap">Rating</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {allNearbyServices.map((service) => (
-                      <TableRow key={service.id} className="hover:bg-muted/20">
-                        <TableCell className="whitespace-nowrap font-medium">{service.name}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{service.locationName}</TableCell>
-                        <TableCell className="whitespace-nowrap capitalize text-muted-foreground">{service.type.replace("_", " ")}</TableCell>
-                        <TableCell className="whitespace-nowrap">{service.distanceKm.toFixed(1)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{service.rating?.toFixed(1) ?? "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">No nearby services found.</p>
-            )}
-          </DashboardCard>
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <div className="space-y-6">
-            <GeoStatsGrid analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              <CategoryPieChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-              <SeverityBarChart analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
-              <TopUpdatedList analytics={analyticsQuery.data} isLoading={analyticsQuery.isLoading} />
+            <div className="pointer-events-none absolute left-3 top-3 z-[700] hidden md:block">
+              <LayerPanel
+                visibleLayers={visibleLayers}
+                onToggle={toggleLayer}
+                onReset={resetLayers}
+                className="pointer-events-auto"
+              />
             </div>
+
+            <FloatingActions actions={buildFloatingActions(workspace, requestDraw)} />
           </div>
-        </TabsContent>
 
-        <TabsContent value="activity">
-          <DashboardCard title="Activity feed" description="All actions performed in GeoContext">
-            <ActivityFeed
-              events={activityQuery.data ?? []}
-              isLoading={activityQuery.isLoading}
-              className="h-[500px]"
-            />
-          </DashboardCard>
-        </TabsContent>
+          {/* inspector / panels dock */}
+          <InspectorDock
+            section={section}
+            panelWidth={panelWidth}
+            setPanelWidth={setPanelWidth}
+            collapsed={panelCollapsed}
+            onCollapsedChange={setPanelCollapsed}
+          />
+        </div>
 
-        <TabsContent value="import-export">
-          <div className="space-y-6">
-            <DashboardCard title="Import GeoJSON" description="Import location data from a GeoJSON FeatureCollection">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".geojson,.json,application/geo+json,application/json"
-                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:py-2 file:px-4 file:text-sm file:font-semibold file:text-primary-foreground hover:file:cursor-pointer hover:file:bg-primary/90"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleImport(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Or paste GeoJSON URL"
-                    className="flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm outline-none focus:border-ring"
-                  />
-                  <Button variant="outline">Fetch</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Supported: GeoJSON FeatureCollection with Point geometries. Fields: nameEn, nameAr, category, governorate, city, country, lat, lng, safetyScore, riskLevel, status.
-                </p>
-              </div>
-            </DashboardCard>
+        <MobileViewSwitcher />
+      </div>
 
-            <DashboardCard title="Export" description="Download your geographic data">
-              <div className="flex flex-col gap-3">
-                <Button variant="outline" onClick={handleExport}>
-                  <Download className="mr-2 size-4" />
-                  Export all locations to GeoJSON
-                </Button>
-                {hasSelection && (
-                  <Button variant="outline" onClick={handleBulkExport}>
-                    <Download className="mr-2 size-4" />
-                    Export {selectedIds.size} selected locations
-                  </Button>
+      {/* overlays */}
+      <WorkspaceOverlays
+        selectedLocation={resolvedLocation}
+        selectedLocationId={selectedLocationId}
+        onCloseLocation={() => setSelectedLocationId(null)}
+        selectedZone={selectedZone}
+        selectedZoneId={selectedZoneId}
+        onCloseZone={() => setSelectedZoneId(null)}
+        selectedBoundary={selectedBoundary}
+        onCloseBoundary={() => setSelectedBoundaryId(null)}
+        locationDialog={locationDialog}
+        setLocationDialog={setLocationDialog}
+        warningDialog={warningDialog}
+        setWarningDialog={setWarningDialog}
+        zoneDialog={zoneDialog}
+        setZoneDialog={setZoneDialog}
+        boundaryDialog={boundaryDialog}
+        setBoundaryDialog={setBoundaryDialog}
+        shortcutsOpen={shortcutsOpen}
+        setShortcutsOpen={setShortcutsOpen}
+        isZoneUpdating={zoneUpdateMutation.isPending}
+        onToggleZoneActive={toggleZoneActive}
+        requestDraw={requestDraw}
+      />
+    </GeoWorkspaceContext.Provider>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Helpers used by the workspace shell
+// -----------------------------------------------------------------------------
+
+function SectionRail({ section, setSection }: { section: WorkspaceSection; setSection: (s: WorkspaceSection) => void }) {
+  return (
+    <div className="hidden shrink-0 flex-col items-stretch gap-1 rounded-xl border border-border/60 bg-popover p-1.5 md:flex md:w-14">
+      {SECTION_ITEMS.map((item) => (
+        <Tooltip key={item.id}>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => setSection(item.id)}
+                className={cn(
+                  "flex h-10 items-center justify-center rounded-lg transition-colors",
+                  section === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
                 )}
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      const fc = await geocontextApi.exportGeoJSON();
-                      downloadFile("geocontext-boundaries.geojson", JSON.stringify(fc, null, 2));
-                      toast.success("Exported boundary data to GeoJSON");
-                    } catch (error) {
-                      toast.error(getErrorMessage(error));
-                    }
-                  }}
-                >
-                  <Download className="mr-2 size-4" />
-                  Export boundaries to GeoJSON
-                </Button>
-              </div>
-            </DashboardCard>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <LocationFormDialog
-        open={locationDialog.open}
-        onOpenChange={(open) => setLocationDialog((prev) => ({ ...prev, open }))}
-        location={locationDialog.location}
-        initialCoords={locationDialog.initialCoords}
-        reverse={locationDialog.reverse}
-      />
-      <WarningFormDialog
-        open={warningDialog.open}
-        onOpenChange={(open) => setWarningDialog((prev) => ({ ...prev, open }))}
-        locationId={warningDialog.locationId}
-        locationName={warningDialog.locationName}
-      />
-      <RestrictedZoneFormDialog
-        open={zoneDialog.open}
-        onOpenChange={(open) => setZoneDialog((prev) => ({ ...prev, open }))}
-        zone={zoneDialog.zone}
-        polygon={zoneDialog.polygon}
-        onRequestDraw={() => {
-          setZoneDialog((prev) => ({ ...prev, open: false }));
-          setDrawMode("zone");
-        }}
-      />
-      <BoundaryFormDialog
-        open={boundaryDialog.open}
-        onOpenChange={(open) => setBoundaryDialog((prev) => ({ ...prev, open }))}
-        polygon={boundaryDialog.polygon}
-        onRequestDraw={() => {
-          setBoundaryDialog((prev) => ({ ...prev, open: false }));
-          setDrawMode("boundary");
-        }}
-        onCreated={(boundary) => {
-          queryClient.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old: Boundary[] | undefined) =>
-            old ? [...old, boundary] : [boundary]
-          );
-          toast.success("Boundary saved");
-        }}
-      />
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={deleteTarget?.kind === "zone" ? "Delete restricted zone?" : "Delete location?"}
-        description={deleteTarget ? `"${deleteTarget.name}" will be removed. This action is audit-logged.` : undefined}
-        variant="destructive"
-        confirmLabel="Delete"
-        isLoading={deleteLocationMutation.isPending || deleteZoneMutation.isPending}
-        onConfirm={handleDelete}
-      />
+                aria-label={item.label}
+              />
+            }
+          >
+            {item.icon}
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <span>{item.label}</span>
+            <kbd>{item.shortcut}</kbd>
+          </TooltipContent>
+        </Tooltip>
+      ))}
     </div>
   );
 }
 
-function ToolButton({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
+function TopToolbar({ section, setSection }: { section: WorkspaceSection; setSection: (s: WorkspaceSection) => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
+    <div className="mb-4 flex items-center gap-1 overflow-x-auto rounded-xl border border-line/60 bg-popover p-1">
+      {SECTION_TABS.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => setSection(item.id)}
+          className={cn(
+            "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+            section === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+          )}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+          <kbd className="ml-1 hidden text-[10px] opacity-70 lg:inline">{item.shortcut}</kbd>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: ReactNode; shortcut: string }[] = [
+  { id: "overview", label: "Overview", icon: <LayoutGrid className="size-5" />, shortcut: "1" },
+  { id: "map", label: "Map", icon: <Map className="size-5" />, shortcut: "2" },
+  { id: "locations", label: "Locations", icon: <MapPinPlus className="size-5" />, shortcut: "3" },
+  { id: "zones", label: "Restricted zones", icon: <ShieldAlert className="size-5" />, shortcut: "4" },
+  { id: "warnings", label: "Warnings", icon: <AlertTriangle className="size-5" />, shortcut: "5" },
+  { id: "nearby", label: "Nearby services", icon: <HeartPulse className="size-5" />, shortcut: "6" },
+  { id: "analytics", label: "Analytics", icon: <BarChart3 className="size-5" />, shortcut: "7" },
+  { id: "activity", label: "Activity", icon: <Activity className="size-5" />, shortcut: "8" },
+  { id: "settings", label: "Settings", icon: <Settings className="size-5" />, shortcut: "9" },
+];
+const SECTION_TABS = SECTION_ITEMS;
+
+const SECTION_PANELS: Record<WorkspaceSection, ReactNode> = {
+  overview: <OverviewPanel />,
+  map: null,
+  locations: <LocationsPanel />,
+  zones: <ZonesPanel />,
+  warnings: <WarningsPanel />,
+  nearby: <NearbyPanel />,
+  analytics: <AnalyticsPanel />,
+  activity: <ActivityPanel />,
+  settings: <SettingsPanel />,
+};
+
+function buildFloatingActions(ws: GeoWorkspace, requestDraw: (m: Exclude<MapDrawMode, null>) => void): FloatingAction[] {
+  return [
+    {
+      key: "location",
+      label: "Add location",
+      icon: <MapPin className="size-4" />,
+      hidden: !ws.canEdit,
+      onClick: () => ws.openCreateLocation(),
+    },
+    {
+      key: "zone",
+      label: "Draw restricted zone",
+      icon: <ShieldAlert className="size-4" />,
+      hidden: !ws.canEdit,
+      active: ws.drawMode === "zone",
+      onClick: () => requestDraw(ws.drawMode === "zone" ? "location" : "zone"),
+    },
+    {
+      key: "boundary",
+      label: "Draw boundary",
+      icon: <Landmark className="size-4" />,
+      hidden: !ws.canEdit,
+      active: ws.drawMode === "boundary",
+      onClick: () => requestDraw(ws.drawMode === "boundary" ? "location" : "boundary"),
+    },
+    {
+      key: "edit-zones",
+      label: "Edit zone polygons",
+      icon: <Repeat className="size-4" />,
+      hidden: !ws.canEdit,
+      active: ws.editZonesMode,
+      onClick: () => {
+        ws.setEditZonesMode(!ws.editZonesMode);
+        ws.setSection("map");
+      },
+    },
+    {
+      key: "import",
+      label: "Import GeoJSON",
+      icon: <UploadCloud className="size-4" />,
+      hidden: !ws.canEdit,
+      onClick: () => ws.setSection("settings"),
+    },
+    {
+      key: "export",
+      label: "Export GeoJSON",
+      icon: <FileUp className="size-4" />,
+      onClick: () => void ws.handleExport(),
+    },
+  ];
+}
+
+interface InspectorDockProps {
+  section: WorkspaceSection;
+  panelWidth: number;
+  setPanelWidth: (w: number) => void;
+  collapsed: boolean;
+  onCollapsedChange: (c: boolean) => void;
+}
+
+/** Right-side, resizable inspector dock that hosts the active section panel. */
+function InspectorDock({ section, panelWidth, setPanelWidth, collapsed, onCollapsedChange }: InspectorDockProps) {
+  const ws = useGeoWorkspace();
+  const panel = SECTION_PANELS[section];
+
+  const isPanelSection = section !== "map" && panel !== null;
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (window.innerWidth < 1024) return;
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    const onMove = (ev: PointerEvent) => {
+      const next = Math.min(720, Math.max(320, startWidth + (startX - ev.clientX)));
+      setPanelWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  if (!isPanelSection) return null;
+
+  return (
+    <aside
       className={cn(
-        "flex size-9 items-center justify-center rounded-xl border shadow-lg backdrop-blur transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border/50 bg-card/90 text-muted-foreground hover:bg-card hover:text-foreground"
+        "flex h-full min-h-0 flex-col border-border/70 bg-background",
+        "w-full rounded-2xl border shadow-sm",
+        "lg:w-[--panel-w] lg:rounded-none lg:border-y-0 lg:border-r lg:bg-muted/30",
+        ws.mobileView === "map" && "hidden lg:flex"
       )}
+      style={{ "--panel-w": `${collapsed ? 56 : panelWidth}px` } as React.CSSProperties}
     >
-      {icon}
-    </button>
+      {collapsed ? (
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(false)}
+          className="hidden h-full flex-col items-center gap-1 py-3 text-muted-foreground lg:flex"
+          aria-label="Expand panel"
+        >
+          <ChevronLeft className="size-4 rotate-180" />
+          <span className="[writing-mode:vertical-rl] rotate-180 text-xs font-semibold uppercase tracking-wider">
+            {SECTION_TABS.find((t) => t.id === section)?.label ?? section}
+          </span>
+        </button>
+      ) : (
+        <>
+          <div
+            role="separator"
+            onPointerDown={onPointerDown}
+            className="group absolute -left-1.5 top-0 z-20 hidden h-full w-3 cursor-col-resize items-center justify-center lg:flex"
+          >
+            <div className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-primary/60" />
+          </div>
+          <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold capitalize">
+              {SECTION_TABS.find((t) => t.id === section)?.icon}
+              {SECTION_TABS.find((t) => t.id === section)?.label}
+            </h3>
+            <Button variant="ghost" size="icon" onClick={() => onCollapsedChange(true)} aria-label="Collapse panel">
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">{panel}</div>
+        </>
+      )}
+    </aside>
   );
 }
 
-function PublishButton({ location, canEdit }: { location: GeoLocation; canEdit: boolean }) {
-  const statusMutation = useSetGeoLocationStatus(location.id);
-  const isPublished = location.status === "published";
+/** Toggle shown on small screens to switch between the map view and the panel view. */
+function MobileViewSwitcher() {
+  const ws = useGeoWorkspace();
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={() =>
-        statusMutation.mutate(isPublished ? "unpublished" : "published", {
-          onSuccess: () => toast.success(`"${location.nameEn}" ${isPublished ? "unpublished" : "published"}`),
-          onError: (error) => toast.error(getErrorMessage(error)),
-        })
-      }
-      disabled={!canEdit || statusMutation.isPending}
-      title={isPublished ? "Unpublish" : "Publish"}
-    >
-      {isPublished ? <PauseCircle className="size-4 text-amber-500" /> : <PlayCircle className="size-4 text-emerald-500" />}
-    </Button>
+    <div className="fixed bottom-4 left-1/2 z-[800] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-background/95 p-1 shadow-lg backdrop-blur lg:hidden">
+      <button
+        type="button"
+        onClick={() => {
+          ws.setMobileView("map");
+          ws.setSection("map");
+        }}
+        className={cn(
+          "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
+          ws.mobileView === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+        )}
+      >
+        <Map className="size-3.5" /> Map
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          ws.setMobileView("panel");
+          const target = ws.section === "map" ? "locations" : ws.section;
+          ws.setSection(target);
+        }}
+        className={cn(
+          "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
+          ws.mobileView === "panel" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+        )}
+      >
+        <Layers className="size-3.5" /> Panel
+      </button>
+    </div>
   );
 }
 
-function Edit3Icon({ className }: { className?: string }) {
+// -----------------------------------------------------------------------------
+// Overlays: selection drawers, dialogs, confirm, context menu & shortcut help
+// -----------------------------------------------------------------------------
+
+interface WorkspaceOverlaysProps {
+  selectedLocation: GeoLocation | null;
+  selectedLocationId: string | null;
+  onCloseLocation: () => void;
+  selectedZone: RestrictedZone | null;
+  selectedZoneId: string | null;
+  onCloseZone: () => void;
+  selectedBoundary: Boundary | null;
+  onCloseBoundary: () => void;
+  locationDialog: LocationDialogState;
+  setLocationDialog: React.Dispatch<React.SetStateAction<LocationDialogState>>;
+  warningDialog: WarningDialogState;
+  setWarningDialog: React.Dispatch<React.SetStateAction<WarningDialogState>>;
+  zoneDialog: { open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] };
+  setZoneDialog: React.Dispatch<React.SetStateAction<{ open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] }>>;
+  boundaryDialog: { open: boolean; polygon: GeoCoordinates[] };
+  setBoundaryDialog: React.Dispatch<React.SetStateAction<{ open: boolean; polygon: GeoCoordinates[] }>>;
+  shortcutsOpen: boolean;
+  setShortcutsOpen: (open: boolean) => void;
+  isZoneUpdating: boolean;
+  onToggleZoneActive: (zone: RestrictedZone) => void;
+  requestDraw: (m: Exclude<MapDrawMode, null>) => void;
+}
+
+function WorkspaceOverlays({
+  selectedLocation,
+  selectedLocationId,
+  onCloseLocation,
+  selectedZone,
+  selectedZoneId,
+  onCloseZone,
+  selectedBoundary,
+  onCloseBoundary,
+  locationDialog,
+  setLocationDialog,
+  warningDialog,
+  setWarningDialog,
+  zoneDialog,
+  setZoneDialog,
+  boundaryDialog,
+  setBoundaryDialog,
+  shortcutsOpen,
+  setShortcutsOpen,
+  isZoneUpdating,
+  onToggleZoneActive,
+  requestDraw,
+}: WorkspaceOverlaysProps) {
+  const ws = useGeoWorkspace();
+  const qc = useQueryClient();
+
+  const deleteIsBulk = ws.deleteTarget?.id === "__bulk__";
+  const deleteTitle = deleteIsBulk ? "Delete selected locations?" : `Delete ${ws.deleteTarget?.kind ?? "item"}?`;
+  const deleteDescription = deleteIsBulk
+    ? "This will permanently remove all selected locations and their related data."
+    : `This will permanently remove "${ws.deleteTarget?.name ?? ""}" and its related data. This action cannot be undone.`;
+
+  const showLocationSheet = selectedLocationId !== null && selectedLocation !== null;
+  const showZoneSheet = selectedZoneId !== null && selectedZone !== null;
+  const showBoundarySheet = selectedBoundary !== null;
+
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
+    <>
+      {/* selection drawers */}
+      {showLocationSheet && selectedLocation && (
+        <Sheet open onOpenChange={(open) => !open && onCloseLocation()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
+          >
+            <LocationDetailsPanel
+              location={selectedLocation}
+              onEdit={() => ws.openEditLocation(selectedLocation)}
+              onAddWarning={() => ws.openWarningDialog(selectedLocation)}
+              onDelete={() => ws.requestDelete({ kind: "location", id: selectedLocation.id, name: selectedLocation.nameEn })}
+              onClose={onCloseLocation}
+              canEdit={ws.canEdit}
+              canDelete={ws.canDelete}
+              allLocations={ws.locations}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {showZoneSheet && selectedZone && (
+        <Sheet open onOpenChange={(open) => !open && onCloseZone()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
+          >
+            <ZoneDrawer
+              zone={selectedZone}
+              open
+              onOpenChange={onCloseZone}
+              canEdit={ws.canEdit}
+              canDelete={ws.canDelete}
+              onEdit={() => ws.openZoneDialog(selectedZone)}
+              onDelete={() => ws.requestDelete({ kind: "zone", id: selectedZone.id, name: selectedZone.name })}
+              onToggleActive={() => onToggleZoneActive(selectedZone)}
+              isToggling={isZoneUpdating}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {showBoundarySheet && selectedBoundary && (
+        <Sheet open onOpenChange={(open) => !open && onCloseBoundary()}>
+          <SheetContent
+            side="right"
+            showCloseButton={false}
+            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
+          >
+            <BoundaryDrawer
+              boundary={selectedBoundary}
+              open
+              onOpenChange={onCloseBoundary}
+              canEdit={ws.canEdit}
+              canDelete={ws.canDelete}
+              onEdit={() => ws.openBoundaryDialog(selectedBoundary.polygon)}
+              onDelete={() => ws.requestDelete({ kind: "boundary", id: selectedBoundary.id, name: selectedBoundary.name })}
+            />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* creation / edit dialogs */}
+      <LocationFormDialog
+        open={locationDialog.open}
+        onOpenChange={(open) => setLocationDialog((d) => ({ ...d, open }))}
+        location={locationDialog.location}
+        initialCoords={locationDialog.initialCoords}
+        reverse={locationDialog.reverse}
+      />
+
+      <WarningFormDialog
+        open={warningDialog.open}
+        onOpenChange={(open) => setWarningDialog((d) => ({ ...d, open }))}
+        locationId={warningDialog.location?.id ?? ""}
+        locationName={warningDialog.location?.nameEn ?? ""}
+      />
+
+      <RestrictedZoneFormDialog
+        open={zoneDialog.open}
+        onOpenChange={(open) => setZoneDialog((d) => ({ ...d, open, polygon: open ? d.polygon : [] }))}
+        zone={zoneDialog.zone}
+        polygon={zoneDialog.polygon}
+        onRequestDraw={() => {
+          setZoneDialog((d) => ({ ...d, open: false }));
+          requestDraw("zone");
+        }}
+      />
+
+      <BoundaryFormDialog
+        open={boundaryDialog.open}
+        onOpenChange={(open) => setBoundaryDialog((d) => ({ ...d, open }))}
+        polygon={boundaryDialog.polygon}
+        onRequestDraw={() => {
+          setBoundaryDialog((d) => ({ ...d, open: false }));
+          requestDraw("boundary");
+        }}
+        onCreated={(b) => {
+          qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) => (old ? [...old, b] : [b]));
+          toast.success("Boundary saved");
+        }}
+      />
+
+      {/* delete confirm */}
+      <ConfirmDialog
+        open={ws.deleteTarget !== null}
+        onOpenChange={(open) => !open && ws.requestDelete(null)}
+        title={deleteTitle}
+        description={deleteDescription}
+        confirmLabel={deleteIsBulk ? "Delete selected" : "Delete"}
+        variant="destructive"
+        isLoading={ws.isDeleting}
+        onConfirm={ws.confirmDelete}
+      />
+
+      {/* right-click context menu host */}
+      <ContextMenu state={ws.contextMenu} onClose={() => ws.setContextMenu(null)} />
+
+      {/* shortcut help */}
+      <ShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+    </>
   );
 }
 
-function RiskChip({ level }: { level: string }) {
-  const cls = (() => {
-    switch (level) {
-      case "low":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
-      case "moderate":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
-      case "high":
-        return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
-      case "extreme":
-        return "bg-red-500/10 text-red-600 dark:text-red-400";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  })();
+/** Keyboard shortcut reference dialog. */
+function ShortcutsHelp({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const shortcuts: { key: string; label: string }[] = [
+    { key: "1 – 9", label: "Jump to section" },
+    { key: "?", label: "Show this shortcut sheet" },
+    { key: "Esc", label: "Close dialogs / cancel" },
+  ];
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {level}
-    </span>
-  );
-}
-
-function WarningSeverityBadge({ severity }: { severity: string }) {
-  const cls = (() => {
-    switch (severity) {
-      case "critical":
-        return "bg-red-500/10 text-red-600 dark:text-red-400";
-      case "high":
-        return "bg-orange-500/10 text-orange-600 dark:text-orange-400";
-      case "medium":
-        return "bg-amber-500/10 text-amber-600 dark:text-amber-400";
-      case "low":
-        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
-      default:
-        return "bg-slate-500/10 text-slate-600 dark:text-slate-400";
-    }
-  })();
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {severity}
-    </span>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" showCloseButton={false} className="mx-auto w-full max-w-lg rounded-t-2xl">
+        <SheetTitle className="flex items-center gap-2 text-base font-semibold">
+          <Keyboard className="size-4" /> Keyboard shortcuts
+        </SheetTitle>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {shortcuts.map((s) => (
+            <div key={s.key} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">{s.label}</span>
+              <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-xs">{s.key}</kbd>
+            </div>
+          ))}
+        </div>
+        <Button onClick={() => onOpenChange(false)} className="w-full">
+          Got it
+        </Button>
+      </SheetContent>
+    </Sheet>
   );
 }

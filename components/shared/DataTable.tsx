@@ -29,6 +29,8 @@ interface DataTableProps<TData> {
   onSortingChange?: (sorting: SortingState) => void;
   emptyTitle?: string;
   emptyDescription?: string;
+  onRowContextMenu?: (row: TData, e: React.MouseEvent<HTMLTableRowElement>) => void;
+  getRowClassName?: (row: TData) => string | undefined;
   className?: string;
 }
 
@@ -40,6 +42,8 @@ export function DataTable<TData>({
   onSortingChange,
   emptyTitle,
   emptyDescription,
+  onRowContextMenu,
+  getRowClassName,
   className,
 }: DataTableProps<TData>) {
   const table = useReactTable({
@@ -115,7 +119,11 @@ export function DataTable<TData>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className="transition-colors hover:bg-muted/20">
+              <TableRow
+                key={row.id}
+                className={cn("transition-colors hover:bg-muted/20", getRowClassName?.(row.original))}
+                onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(row.original, e) : undefined}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="whitespace-nowrap">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
