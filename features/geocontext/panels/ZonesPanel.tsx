@@ -72,7 +72,7 @@ export function ZonesPanel() {
               </TableHeader>
               <TableBody>
                 {zones.map((zone) => (
-                  <TableRow key={zone.id} className="cur-draggable hover:bg-muted/20" onClick={() => ws.selectZone(zone.id)}>
+                  <TableRow key={zone.id} className="cur-draggable hover:bg-muted/20" onClick={() => ws.openZone(zone, "view")}>
                     <TableCell className="whitespace-nowrap font-medium">
                       <div className="flex items-center gap-2">
                         <span className="flex size-7 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
@@ -96,7 +96,7 @@ export function ZonesPanel() {
                           size="icon-sm"
                           variant="ghost"
                           title="Locate on map"
-                          onClick={(e) => { e.stopPropagation(); ws.selectZone(zone.id); }}
+                          onClick={(e) => { e.stopPropagation(); ws.openZone(zone, "view"); }}
                         >
                           <Landmark className="size-4" />
                         </Button>
@@ -105,7 +105,7 @@ export function ZonesPanel() {
                           variant="ghost"
                           title="Edit zone"
                           disabled={!ws.canEdit}
-                          onClick={(e) => { e.stopPropagation(); ws.openZoneDialog(zone); }}
+                          onClick={(e) => { e.stopPropagation(); ws.openZone(zone, "edit"); }}
                         >
                           <Pencil className="size-4" />
                         </Button>

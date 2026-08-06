@@ -225,6 +225,10 @@ export interface GeoLocation {
   address: string;
   lat: number;
   lng: number;
+  /** Polygon outline for area-based locations, derived from customMetadata.polygon. */
+  polygon?: GeoCoordinates[];
+  /** Multi-polygon outlines for area-based locations (JSON payload in customMetadata). */
+  polygons?: GeoCoordinates[][];
   images: LocationImage[];
   videos: LocationVideo[];
   tags: string[];

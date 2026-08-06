@@ -1,48 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  FileUp,
-  HeartPulse,
   Keyboard,
   Landmark,
-  Layers,
-  LayoutGrid,
   Loader2,
-  Map,
-  MapPin,
-  MapPinPlus,
+  PanelLeft,
   Pencil,
   Plus,
-  Repeat,
-  Settings,
-  ShieldAlert,
   Trash2,
-  UploadCloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { RoleGuard } from "@/features/auth/role-guard";
 import { useAuth } from "@/features/auth/auth-context";
-import {
-  DEFAULT_BASEMAP,
-  GEO_QUERY_KEYS,
-  type BasemapId,
-} from "@/constants/geocontext";
+import { DEFAULT_BASEMAP, GEO_QUERY_KEYS, type BasemapId } from "@/constants/geocontext";
 import { DEFAULT_PAGE_SIZE } from "@/constants";
 import { geocontextApi } from "@/services/geocontext";
 import {
+  useBulkDeleteGeoLocations,
+  useBulkGeoLocationStatus,
+  useDeleteBoundary,
+  useDeleteGeoLocation,
+  useDeleteRestrictedZone,
   useGeoActivity,
   useGeoAnalytics,
   useGeoBoundaries,
@@ -50,49 +33,41 @@ import {
   useGeoLocations,
   useGeoRestrictedZones,
   useGovernorates,
-  useBulkDeleteGeoLocations,
-  useBulkGeoLocationStatus,
-  useDeleteGeoLocation,
-  useDeleteRestrictedZone,
   useImportGeoJSON,
   useSetGeoLocationStatusNow,
 } from "@/hooks/useGeocontext";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { MAP_LAYERS } from "@/constants/geocontext";
 import dynamic from "next/dynamic";
-import type { MapDrawMode } from "@/features/geocontext/GeoContextMap";
-import { LocationFormDialog } from "@/features/geocontext/LocationFormDialog";
-import { WarningFormDialog } from "@/features/geocontext/WarningFormDialog";
-import { RestrictedZoneFormDialog } from "@/features/geocontext/RestrictedZoneFormDialog";
-import { BoundaryFormDialog } from "@/features/geocontext/BoundaryFormDialog";
-import { LocationDetailsPanel } from "@/features/geocontext/LocationDetailsPanel";
-import { ZoneDrawer } from "@/features/geocontext/ZoneDrawer";
-import { BoundaryDrawer } from "@/features/geocontext/BoundaryDrawer";
-import { LayerPanel } from "@/features/geocontext/LayerPanel";
-import { FloatingActions, type FloatingAction } from "@/features/geocontext/FloatingActions";
+import type { MapCommand, MapDrawMode } from "@/features/geocontext/GeoContextMap";
 import { ContextMenu, type ContextMenuState } from "@/features/geocontext/ContextMenu";
 import { toGeoSort } from "@/features/geocontext/LocationTable";
+import { LeftSidebar } from "@/features/geocontext/workspace/LeftSidebar";
+import { TopToolbar } from "@/features/geocontext/workspace/TopToolbar";
+import { SectionDrawer } from "@/features/geocontext/workspace/SectionDrawer";
+import { LocationDrawer } from "@/features/geocontext/drawer/LocationDrawer";
+import { LocationFormModal } from "@/features/geocontext/drawer/LocationFormModal";
+import { ZoneDrawerForm } from "@/features/geocontext/drawer/ZoneDrawerForm";
+import { ZoneFormModal } from "@/features/geocontext/drawer/ZoneFormModal";
+import { BoundaryDrawerForm } from "@/features/geocontext/drawer/BoundaryDrawerForm";
+import { BoundaryFormModal } from "@/features/geocontext/drawer/BoundaryFormModal";
 import {
   GeoWorkspaceContext,
-  useGeoWorkspace,
   type DeleteTarget,
+  type DrawIntent,
+  type DrawerTarget,
   type GeoWorkspace,
   type WorkspaceSection,
 } from "@/features/geocontext/workspace-context";
-import { OverviewPanel } from "@/features/geocontext/panels/OverviewPanel";
-import { LocationsPanel } from "@/features/geocontext/panels/LocationsPanel";
-import { ZonesPanel } from "@/features/geocontext/panels/ZonesPanel";
-import { WarningsPanel } from "@/features/geocontext/panels/WarningsPanel";
-import { NearbyPanel } from "@/features/geocontext/panels/NearbyPanel";
-import { AnalyticsPanel } from "@/features/geocontext/panels/AnalyticsPanel";
-import { ActivityPanel } from "@/features/geocontext/panels/ActivityPanel";
-import { SettingsPanel } from "@/features/geocontext/panels/SettingsPanel";
 import {
   downloadFile,
   locationsToFeatureCollection,
   parseGeoJSONFile,
-  reverseGeocode,
 } from "@/features/geocontext/geoUtils";
+import {
+  multiPolygonGeometry,
+  type DraftGeometry,
+} from "@/features/geocontext/drawing/geometry";
 import { makeHeatPoints } from "@/features/geocontext/map/heat-layer";
 import type { SortingState } from "@tanstack/react-table";
 import type {
@@ -122,18 +97,6 @@ const GeoContextMap = dynamic(
   }
 );
 
-interface LocationDialogState {
-  open: boolean;
-  location: GeoLocation | null;
-  initialCoords: { lat: number; lng: number } | null;
-  reverse: Awaited<ReturnType<typeof reverseGeocode>> | null;
-}
-
-interface WarningDialogState {
-  open: boolean;
-  location: GeoLocation | null;
-}
-
 export default function GeocontextWorkspacePage() {
   return (
     <RoleGuard roles={["ADMIN", "MODERATOR"]}>
@@ -150,7 +113,7 @@ function GeoContextWorkspace() {
   const qc = useQueryClient();
 
   // --- section & navigation ---
-  const [section, setSection] = useState<WorkspaceSection>("overview");
+  const [section, setSection] = useState<WorkspaceSection>("map");
 
   // --- locations table state ---
   const [filters, setFilters] = useState<GeoFilters>({ search: "" });
@@ -164,42 +127,65 @@ function GeoContextWorkspace() {
   // --- map state ---
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>(allLayersOn);
   const [drawMode, setDrawMode] = useState<MapDrawMode>(null);
+  const [editMode, setEditMode] = useState(false);
   const [editZonesMode, setEditZonesMode] = useState(false);
   const [basemap, setBasemap] = useState<BasemapId>(() => {
     if (typeof window === "undefined") return DEFAULT_BASEMAP;
     return (localStorage.getItem("geocontext-basemap") as BasemapId) || DEFAULT_BASEMAP;
   });
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const mapCommandRef = useRef<MapCommand | null>(null);
 
   // --- selections ---
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedBoundaryId, setSelectedBoundaryId] = useState<string | null>(null);
+  const [recentLocationIds, setRecentLocationIds] = useState<string[]>([]);
 
-  // --- dialogs ---
-  const [locationDialog, setLocationDialog] = useState<LocationDialogState>({
-    open: false,
-    location: null,
-    initialCoords: null,
-    reverse: null,
+  // --- right drawer state machine ---
+  const [drawerTarget, setDrawerTarget] = useState<DrawerTarget>({ kind: "closed" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [draftGeometry, setDraftGeometry] = useState<DraftGeometry | null>(null);
+
+  // --- drawing history (undo / redo) ---
+  const [draftHist, setDraftHist] = useState<{ stack: DraftGeometry[]; index: number }>({
+    stack: [],
+    index: -1,
   });
-  const [warningDialog, setWarningDialog] = useState<WarningDialogState>({ open: false, location: null });
-  const [zoneDialog, setZoneDialog] = useState<{ open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] }>({
-    open: false,
-    zone: null,
-    polygon: [],
-  });
-  const [boundaryDialog, setBoundaryDialog] = useState<{ open: boolean; polygon: GeoCoordinates[] }>({
-    open: false,
-    polygon: [],
-  });
+
+  const commitDraft = (g: DraftGeometry | null) => {
+    const h = draftHist;
+    const stack = g ? [...h.stack.slice(0, h.index + 1), g] : h.stack.slice(0, h.index + 1);
+    setDraftHist({ stack, index: g ? h.index + 1 : h.index });
+    setDraftGeometry(g);
+  };
+  const undoDraw = () => {
+    const h = draftHist;
+    if (h.index <= 0) return;
+    const index = h.index - 1;
+    setDraftHist({ ...h, index });
+    setDraftGeometry(h.stack[index] ?? null);
+  };
+  const redoDraw = () => {
+    const h = draftHist;
+    if (h.index >= h.stack.length - 1) return;
+    const index = h.index + 1;
+    setDraftHist({ ...h, index });
+    setDraftGeometry(h.stack[index] ?? null);
+  };
+  const canUndo = draftHist.index > 0;
+  const canRedo = draftHist.index < draftHist.stack.length - 1;
+
+  // --- pending draw destination (a shape is being drawn with the form closed) ---
+  const [drawIntent, setDrawIntent] = useState<DrawIntent>(null);
+
+  // --- delete confirm ---
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // --- workspace layout (responsive) ---
   const [mobileView, setMobileView] = useState<"map" | "panel">("map");
-  const [panelWidth, setPanelWidth] = useState(468);
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Persist basemap choice
   useEffect(() => {
@@ -255,19 +241,11 @@ function GeoContextWorkspace() {
   // --- mutations ---
   const deleteLocationMutation = useDeleteGeoLocation();
   const deleteZoneMutation = useDeleteRestrictedZone();
+  const deleteBoundaryMutation = useDeleteBoundary();
   const bulkStatusMutation = useBulkGeoLocationStatus();
   const bulkDeleteMutation = useBulkDeleteGeoLocations();
   const importMutation = useImportGeoJSON();
   const statusNowMutation = useSetGeoLocationStatusNow();
-
-  const deleteBoundaryMutation = useMutation({
-    mutationFn: (id: string) => geocontextApi.deleteBoundary(id),
-    onSuccess: (_, id) => {
-      qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) => old?.filter((b) => b.id !== id) ?? []);
-      if (selectedBoundaryId === id) setSelectedBoundaryId(null);
-      toast.success("Boundary deleted");
-    },
-  });
 
   const zoneUpdateMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<RestrictedZone> }) =>
@@ -300,39 +278,131 @@ function GeoContextWorkspace() {
   const toggleLayer = (id: string) => setVisibleLayers((v) => ({ ...v, [id]: !v[id] }));
   const resetLayers = () => setVisibleLayers(allLayersOn);
 
-  const selectLocation = (id: string | null) => {
-    setSelectedLocationId(id);
-    setContextMenu(null);
+  const pushRecentLocation = (id: string) => {
+    setRecentLocationIds((prev) => [id, ...prev.filter((x) => x !== id)].slice(0, 10));
   };
-  const selectZone = (id: string | null) => {
-    setSelectedZoneId(id);
-    setContextMenu(null);
-  };
-  const selectBoundary = (id: string | null) => {
-    setSelectedBoundaryId(id);
-    setContextMenu(null);
+  const flyToMap = (lat: number, lng: number, zoom?: number) => {
+    mapCommandRef.current?.flyTo({ lat, lng }, zoom);
   };
 
-  const openCreateLocation = () => {
+  // --- right drawer state machine actions ---
+  const openCreateLocation = (mode: MapDrawMode = "point") => {
+    setDraftHist({ stack: [], index: -1 });
+    setDraftGeometry(null);
+    setDrawMode(mode);
+    setDrawIntent({ kind: "create-location" });
     setSection("map");
-    setLocationDialog({ open: true, location: null, initialCoords: null, reverse: null });
+    setMobileView("map");
+    setDrawerTarget({ kind: "closed" });
+    setDrawerOpen(false);
   };
-  const openEditLocation = (location: GeoLocation) => {
-    setLocationDialog({
-      open: true,
-      location,
-      initialCoords: location ? { lat: location.lat, lng: location.lng } : null,
-      reverse: null,
-    });
+
+  const openCreateZone = () => {
+    setDrawMode("zone");
+    setDrawIntent({ kind: "create-zone" });
+    setSection("map");
+    setMobileView("map");
+    setDrawerTarget({ kind: "closed" });
+    setDrawerOpen(false);
   };
-  const openWarningDialog = (location: GeoLocation) => {
-    setWarningDialog({ open: true, location });
+
+  const openCreateBoundary = () => {
+    setDrawMode("boundary");
+    setDrawIntent({ kind: "create-boundary" });
+    setSection("map");
+    setMobileView("map");
+    setDrawerTarget({ kind: "closed" });
+    setDrawerOpen(false);
   };
-  const openZoneDialog = (zone?: RestrictedZone, polygon?: GeoCoordinates[]) => {
-    setZoneDialog({ open: true, zone: zone ?? null, polygon: polygon ?? [] });
+
+  const openLocation = (location: GeoLocation | null, mode: "view" | "edit" = "view") => {
+    if (!location) return;
+    setSelectedLocationId(location.id);
+    pushRecentLocation(location.id);
+    setSection("map");
+    setMobileView("map");
+    setDrawMode(null);
+    setDrawIntent(null);
+    setDraftGeometry(null);
+    setDrawerTarget({ kind: "location", mode, locationId: location.id });
+    setDrawerOpen(true);
   };
-  const openBoundaryDialog = (polygon?: GeoCoordinates[]) => {
-    setBoundaryDialog({ open: true, polygon: polygon ?? [] });
+
+  const openZone = (zone: RestrictedZone | null, mode: "view" | "edit" = "view") => {
+    if (!zone) return;
+    setSelectedZoneId(zone.id);
+    setSection("map");
+    setMobileView("map");
+    setDrawMode(null);
+    setDrawIntent(null);
+    setDraftGeometry(null);
+    setDrawerTarget({ kind: "zone", mode, zoneId: zone.id });
+    setDrawerOpen(true);
+  };
+
+  const openBoundary = (boundary: Boundary | null, mode: "view" | "edit" = "view") => {
+    if (!boundary) return;
+    setSelectedBoundaryId(boundary.id);
+    setSection("map");
+    setMobileView("map");
+    setDrawMode(null);
+    setDrawIntent(null);
+    setDraftGeometry(null);
+    setDrawerTarget({ kind: "boundary", mode, boundaryId: boundary.id });
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerTarget({ kind: "closed" });
+    setDrawerOpen(false);
+    setDrawMode(null);
+    setEditMode(false);
+    setDraftGeometry(null);
+    setDrawIntent(null);
+  };
+
+  const setDrawerOpenControl = (open: boolean) => {
+    setDrawerOpen(open);
+    if (!open) {
+      setDrawerTarget({ kind: "closed" });
+      setDrawMode(null);
+      setEditMode(false);
+      setDraftGeometry(null);
+      setDrawIntent(null);
+    }
+  };
+
+  /** Close the active Create/Edit overlay and switch to draw mode for its geometry. */
+  const requestDraw = () => {
+    const t = drawerTarget;
+    let intent: DrawIntent = null;
+    let mode: MapDrawMode = null;
+    if (t.kind === "create-location") {
+      intent = { kind: "create-location" };
+      mode = "point";
+    } else if (t.kind === "location") {
+      intent = { kind: "edit-location", locationId: t.locationId };
+      mode = "point";
+    } else if (t.kind === "create-zone") {
+      intent = { kind: "create-zone" };
+      mode = "zone";
+    } else if (t.kind === "zone") {
+      intent = { kind: "edit-zone", zoneId: t.zoneId };
+      mode = "zone";
+    } else if (t.kind === "create-boundary") {
+      intent = { kind: "create-boundary" };
+      mode = "boundary";
+    } else if (t.kind === "boundary") {
+      intent = { kind: "edit-boundary", boundaryId: t.boundaryId };
+      mode = "boundary";
+    }
+    setDrawIntent(intent);
+    setDrawMode(mode);
+    setDraftGeometry(null);
+    setDrawerTarget({ kind: "closed" });
+    setDrawerOpen(false);
+    setSection("map");
+    setMobileView("map");
   };
 
   const toggleLocationStatus = (location: GeoLocation) => {
@@ -399,18 +469,7 @@ function GeoContextWorkspace() {
     }
   };
 
-  const handleMapClick = async (latlng: { lat: number; lng: number }) => {
-    setDrawMode(null);
-    let reverse: Awaited<ReturnType<typeof reverseGeocode>> | null = null;
-    try {
-      reverse = await reverseGeocode(latlng.lat, latlng.lng);
-    } catch {
-      reverse = null;
-    }
-    setContextMenu(null);
-    setLocationDialog({ open: true, location: null, initialCoords: latlng, reverse });
-  };
-
+  // --- delete ---
   const requestDelete = (target: DeleteTarget | null) => setDeleteTarget(target);
 
   const confirmDelete = () => {
@@ -427,7 +486,11 @@ function GeoContextWorkspace() {
       } else {
         deleteLocationMutation.mutate(t.id, {
           onSuccess: () => {
-            if (selectedLocationId === t.id) setSelectedLocationId(null);
+            if (selectedLocationId === t.id) {
+              setSelectedLocationId(null);
+              setDrawerTarget({ kind: "closed" });
+              setDrawerOpen(false);
+            }
             toast.success("Location deleted");
           },
         });
@@ -435,14 +498,91 @@ function GeoContextWorkspace() {
     } else if (t.kind === "zone") {
       deleteZoneMutation.mutate(t.id, {
         onSuccess: () => {
-          if (selectedZoneId === t.id) setSelectedZoneId(null);
+          if (selectedZoneId === t.id) {
+            setSelectedZoneId(null);
+            setDrawerTarget({ kind: "closed" });
+            setDrawerOpen(false);
+          }
           toast.success("Restricted zone deleted");
         },
       });
     } else if (t.kind === "boundary") {
-      deleteBoundaryMutation.mutate(t.id);
+      deleteBoundaryMutation.mutate(t.id, {
+        onSuccess: () => {
+          if (selectedBoundaryId === t.id) {
+            setSelectedBoundaryId(null);
+            setDrawerTarget({ kind: "closed" });
+            setDrawerOpen(false);
+          }
+          toast.success("Boundary deleted");
+        },
+      });
     }
     setDeleteTarget(null);
+  };
+
+  // --- map events ---
+  const handleGeometryDrawn = (geometry: DraftGeometry) => {
+    const ring = geometry.parts.find((p) => p.type === "polygon")?.coords ?? [];
+    const intent = drawIntent;
+    setDrawIntent(null);
+    const locDefault = (createdGeometry: DraftGeometry) => {
+      commitDraft(createdGeometry);
+      setDrawerTarget({ kind: "create-location", geometry: createdGeometry });
+    };
+    if (intent?.kind === "create-zone") {
+      setDrawerTarget({ kind: "create-zone", polygon: ring });
+    } else if (intent?.kind === "edit-zone") {
+      commitDraft(geometry);
+      setDrawerTarget({ kind: "zone", mode: "edit", zoneId: intent.zoneId });
+    } else if (intent?.kind === "create-boundary") {
+      setDrawerTarget({ kind: "create-boundary", polygon: ring });
+    } else if (intent?.kind === "edit-boundary") {
+      commitDraft(geometry);
+      setDrawerTarget({ kind: "boundary", mode: "edit", boundaryId: intent.boundaryId });
+    } else if (intent?.kind === "edit-location") {
+      commitDraft(geometry);
+      setDrawerTarget({ kind: "location", mode: "edit", locationId: intent.locationId });
+    } else {
+      locDefault(geometry);
+    }
+    setDrawMode(null);
+    setSection("map");
+    setMobileView("map");
+    setDrawerOpen(true);
+  };
+
+  const handleMultiPartDrawn = (ring: GeoCoordinates[]) => {
+    const prev = draftGeometry;
+    const existing = (prev?.parts ?? [])
+      .filter((p) => p.type === "polygon")
+      .flatMap((p) => (p.type === "polygon" ? [p.coords] : []));
+    const geometry = multiPolygonGeometry([...existing, ring]);
+    commitDraft(geometry);
+    setDrawIntent(null);
+    setSection("map");
+    setDrawerTarget({ kind: "create-location", geometry });
+    setDrawerOpen(true);
+  };
+
+  const handleDraftGeometryChange = (geometry: DraftGeometry | null) => {
+    setDraftGeometry(geometry);
+    if (drawerTarget.kind === "create-location") {
+      setDrawerTarget({ kind: "create-location", geometry });
+    }
+  };
+
+  const selectLocationFromMap = (id: string) => {
+    const loc = locations.find((l) => l.id === id) ?? null;
+    if (loc) openLocation(loc, "view");
+  };
+  const selectZoneFromMap = (id: string) => {
+    const z = zones.find((z) => z.id === id) ?? null;
+    if (z) openZone(z, "view");
+  };
+  const selectBoundaryFromMap = (id: string) => {
+    const b = boundaries.find((b) => b.id === id) ?? null;
+    if (b) openBoundary(b, "view");
   };
 
   const openLocationContextMenu = (location: GeoLocation, point: { x: number; y: number }) => {
@@ -453,15 +593,15 @@ function GeoContextWorkspace() {
         {
           key: "view",
           label: "View details",
-          icon: <Eye className="size-4" />,
-          onSelect: () => selectLocation(location.id),
+          icon: <EyeIcon />,
+          onSelect: () => openLocation(location, "view"),
         },
         {
           key: "edit",
           label: "Edit location",
           icon: <Pencil className="size-4" />,
           disabled: !canEdit,
-          onSelect: () => openEditLocation(location),
+          onSelect: () => openLocation(location, "edit"),
         },
         { key: "divider1", divider: true },
         {
@@ -476,7 +616,10 @@ function GeoContextWorkspace() {
           icon: <Trash2 className="size-4" />,
           destructive: true,
           disabled: !canDelete,
-          onSelect: () => handleDelete({ kind: "location", id: location.id, name: location.nameEn }),
+          onSelect: () => {
+            requestDelete({ kind: "location", id: location.id, name: location.nameEn });
+            closeDrawer();
+          },
         },
       ],
     });
@@ -487,13 +630,13 @@ function GeoContextWorkspace() {
       x: point.x,
       y: point.y,
       items: [
-        { key: "view", label: "View zone", icon: <Eye className="size-4" />, onSelect: () => selectZone(zone.id) },
+        { key: "view", label: "View zone", icon: <EyeIcon />, onSelect: () => openZone(zone, "view") },
         {
           key: "edit",
           label: "Edit zone",
           icon: <Pencil className="size-4" />,
           disabled: !canEdit,
-          onSelect: () => openZoneDialog(zone),
+          onSelect: () => openZone(zone, "edit"),
         },
         {
           key: "polygon",
@@ -509,30 +652,13 @@ function GeoContextWorkspace() {
           icon: <Trash2 className="size-4" />,
           destructive: true,
           disabled: !canDelete,
-          onSelect: () => handleDelete({ kind: "zone", id: zone.id, name: zone.name }),
+          onSelect: () => {
+            requestDelete({ kind: "zone", id: zone.id, name: zone.name });
+            closeDrawer();
+          },
         },
       ],
     });
-  };
-
-  const handleDelete = (target: DeleteTarget) => setDeleteTarget(target);
-
-  const requestDraw = (mode: Exclude<MapDrawMode, null>) => {
-    setDrawMode(mode);
-    setSection("map");
-    setPanelCollapsed(false);
-    setMobileView("map");
-  };
-
-  const handlePolygonDrawn = (coords: GeoCoordinates[]) => {
-    if (drawMode === "zone") {
-      setZoneDialog({ open: true, zone: null, polygon: coords });
-    } else if (drawMode === "boundary") {
-      setBoundaryDialog({ open: true, polygon: coords });
-    } else {
-      return;
-    }
-    setDrawMode(null);
   };
 
   // --- keyboard shortcuts ---
@@ -546,6 +672,9 @@ function GeoContextWorkspace() {
     { keys: "7", handler: () => setSection("analytics") },
     { keys: "8", handler: () => setSection("activity") },
     { keys: "9", handler: () => setSection("settings") },
+    { keys: "p", handler: () => openCreateLocation() },
+    { keys: "z", handler: () => openCreateZone() },
+    { keys: "e", handler: () => setEditMode((v) => !v) },
     { keys: "?", handler: () => setShortcutsOpen(true) },
   ]);
 
@@ -582,11 +711,14 @@ function GeoContextWorkspace() {
     sorting,
     setSorting,
     selectedLocationId,
-    selectLocation,
     selectedZoneId,
-    selectZone,
     selectedBoundaryId,
-    selectBoundary,
+    resolvedLocation,
+    selectedZone,
+    selectedBoundary,
+    recentLocationIds,
+    pushRecentLocation,
+    flyToMap,
     selectedIds,
     setSelectedIds: (ids) => setSelectedIds(new Set(ids)),
     hasSelection: selectedIds.size > 0,
@@ -596,19 +728,40 @@ function GeoContextWorkspace() {
     resetLayers,
     drawMode,
     setDrawMode,
+    editMode,
+    setEditMode,
     editZonesMode,
     setEditZonesMode,
     basemap,
-    setBasemap: (id) => setBasemap(id),
+    setBasemap,
+    drawerTarget,
+    setDrawerTarget,
+    drawerOpen,
+    setDrawerOpen: setDrawerOpenControl,
+    draftGeometry,
+    setDraftGeometry,
+    canUndo,
+    canRedo,
+    undoDraw,
+    redoDraw,
     openCreateLocation,
-    openEditLocation,
-    openWarningDialog,
-    openZoneDialog,
-    openBoundaryDialog,
+    openCreateZone,
+    openCreateBoundary,
+    openLocation,
+    openZone,
+    openBoundary,
+    closeDrawer,
+    drawIntent,
+    setDrawIntent,
+    requestDraw,
     deleteTarget,
     requestDelete,
     confirmDelete,
-    isDeleting: deleteLocationMutation.isPending || bulkDeleteMutation.isPending || deleteZoneMutation.isPending || deleteBoundaryMutation.isPending,
+    isDeleting:
+      deleteLocationMutation.isPending ||
+      bulkDeleteMutation.isPending ||
+      deleteZoneMutation.isPending ||
+      deleteBoundaryMutation.isPending,
     handleBulkStatus,
     handleBulkDelete,
     handleBulkExport,
@@ -618,6 +771,7 @@ function GeoContextWorkspace() {
     toggleLocationStatus,
     toggleZoneActive,
     updateZonePolygon,
+    isZoneUpdating: zoneUpdateMutation.isPending,
     contextMenu,
     setContextMenu,
     mobileView,
@@ -626,28 +780,33 @@ function GeoContextWorkspace() {
 
   return (
     <GeoWorkspaceContext.Provider value={workspace}>
-      <div className="flex flex-col gap-4">
-        <PageHeader title="GeoContext workspace" description="Monitor, edit and analyse Egypt's points of interest on a live map.">
+      <div className="flex flex-col gap-3 lg:h-[calc(100dvh-11.5rem)] lg:min-h-[560px]">
+        <PageHeader title="GeoContext Workspace" description="Manage Egypt's geographic knowledge — points of interest, restricted areas and warnings on a live map.">
           <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setSidebarOpen(true)} className="lg:hidden">
+              <PanelLeft className="size-4" /> Browse
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShortcutsOpen(true)}>
               <Keyboard className="size-4" /> Shortcuts
             </Button>
-            <Button size="sm" onClick={openCreateLocation}>
+            <Button size="sm" onClick={() => openCreateLocation()}>
               <Plus className="size-4" /> Add location
             </Button>
           </div>
         </PageHeader>
 
-        <TopToolbar section={section} setSection={setSection} />
+        <TopToolbar commandRef={mapCommandRef} />
 
-        <div className="relative flex min-h-0 flex-col gap-4 lg:h-[calc(100dvh-17rem)] lg:flex-row">
-          {/* left section rail */}
-          <SectionRail section={section} setSection={setSection} />
+        <div className="flex min-h-0 flex-1 gap-3">
+          {/* left sidebar — search / filters / categories / list / recent / quick actions */}
+          <div className="hidden w-[300px] shrink-0 overflow-hidden rounded-2xl border border-border/60 bg-popover shadow-sm lg:block">
+            <LeftSidebar />
+          </div>
 
-          {/* map pane */}
+          {/* map pane — the persistent centre of the workspace */}
           <div
             className={cn(
-              "relative min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-border bg-popover shadow-sm",
+              "relative z-0 min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-border bg-popover shadow-sm",
               mobileView === "panel" && "hidden lg:flex"
             )}
           >
@@ -661,523 +820,62 @@ function GeoContextWorkspace() {
               selectedZoneId={selectedZoneId}
               selectedBoundaryId={selectedBoundaryId}
               drawMode={drawMode}
+              editMode={editMode}
               editZonesMode={editZonesMode}
               basemap={basemap}
               onBasemapChange={setBasemap}
               heatPoints={heatPoints}
-              onSelectLocation={(id) => {
-                setSelectedLocationId(id);
-                setMobileView("panel");
-              }}
-              onSelectZone={selectZone}
-              onSelectBoundary={selectBoundary}
-              onMapClick={handleMapClick}
-              onPolygonDrawn={handlePolygonDrawn}
+              commandRef={mapCommandRef}
+              onSelectLocation={selectLocationFromMap}
+              onSelectZone={selectZoneFromMap}
+              onSelectBoundary={selectBoundaryFromMap}
+              onGeometryDrawn={handleGeometryDrawn}
+              onMultiPartDrawn={handleMultiPartDrawn}
+              onDraftGeometryChange={handleDraftGeometryChange}
               onZonePolygonEdited={updateZonePolygon}
               onLocationContextMenu={openLocationContextMenu}
               onZoneContextMenu={openZoneContextMenu}
             />
-
-            <div className="pointer-events-none absolute left-3 top-3 z-[700] hidden md:block">
-              <LayerPanel
-                visibleLayers={visibleLayers}
-                onToggle={toggleLayer}
-                onReset={resetLayers}
-                className="pointer-events-auto"
-              />
-            </div>
-
-            <FloatingActions actions={buildFloatingActions(workspace, requestDraw)} />
           </div>
-
-          {/* inspector / panels dock */}
-          <InspectorDock
-            section={section}
-            panelWidth={panelWidth}
-            setPanelWidth={setPanelWidth}
-            collapsed={panelCollapsed}
-            onCollapsedChange={setPanelCollapsed}
-          />
         </div>
-
-        <MobileViewSwitcher />
       </div>
 
-      {/* overlays */}
-      <WorkspaceOverlays
-        selectedLocation={resolvedLocation}
-        selectedLocationId={selectedLocationId}
-        onCloseLocation={() => setSelectedLocationId(null)}
-        selectedZone={selectedZone}
-        selectedZoneId={selectedZoneId}
-        onCloseZone={() => setSelectedZoneId(null)}
-        selectedBoundary={selectedBoundary}
-        onCloseBoundary={() => setSelectedBoundaryId(null)}
-        locationDialog={locationDialog}
-        setLocationDialog={setLocationDialog}
-        warningDialog={warningDialog}
-        setWarningDialog={setWarningDialog}
-        zoneDialog={zoneDialog}
-        setZoneDialog={setZoneDialog}
-        boundaryDialog={boundaryDialog}
-        setBoundaryDialog={setBoundaryDialog}
-        shortcutsOpen={shortcutsOpen}
-        setShortcutsOpen={setShortcutsOpen}
-        isZoneUpdating={zoneUpdateMutation.isPending}
-        onToggleZoneActive={toggleZoneActive}
-        requestDraw={requestDraw}
-      />
+      {/* mobile left sidebar drawer */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" showCloseButton={false} className="w-[320px] p-0 sm:max-w-sm">
+          <LeftSidebar />
+        </SheetContent>
+      </Sheet>
+
+      {/* right drawer — View Details for locations / zones / boundaries */}
+      <LocationDrawer />
+      <ZoneDrawerForm />
+      <BoundaryDrawerForm />
+      <SectionDrawer />
+
+      {/* centered modals — Create / Edit / data-entry forms live here */}
+      <LocationFormModal />
+      <ZoneFormModal />
+      <BoundaryFormModal />
+
+      {/* right-click context menu host */}
+      <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
+
+      {/* shortcut help */}
+      <ShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </GeoWorkspaceContext.Provider>
   );
 }
 
-// -----------------------------------------------------------------------------
-// Helpers used by the workspace shell
-// -----------------------------------------------------------------------------
-
-function SectionRail({ section, setSection }: { section: WorkspaceSection; setSection: (s: WorkspaceSection) => void }) {
-  return (
-    <div className="hidden shrink-0 flex-col items-stretch gap-1 rounded-xl border border-border/60 bg-popover p-1.5 md:flex md:w-14">
-      {SECTION_ITEMS.map((item) => (
-        <Tooltip key={item.id}>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onClick={() => setSection(item.id)}
-                className={cn(
-                  "flex h-10 items-center justify-center rounded-lg transition-colors",
-                  section === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-                )}
-                aria-label={item.label}
-              />
-            }
-          >
-            {item.icon}
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <span>{item.label}</span>
-            <kbd>{item.shortcut}</kbd>
-          </TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
-function TopToolbar({ section, setSection }: { section: WorkspaceSection; setSection: (s: WorkspaceSection) => void }) {
-  return (
-    <div className="mb-4 flex items-center gap-1 overflow-x-auto rounded-xl border border-line/60 bg-popover p-1">
-      {SECTION_TABS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => setSection(item.id)}
-          className={cn(
-            "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-            section === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-          )}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-          <kbd className="ml-1 hidden text-[10px] opacity-70 lg:inline">{item.shortcut}</kbd>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const SECTION_ITEMS: { id: WorkspaceSection; label: string; icon: ReactNode; shortcut: string }[] = [
-  { id: "overview", label: "Overview", icon: <LayoutGrid className="size-5" />, shortcut: "1" },
-  { id: "map", label: "Map", icon: <Map className="size-5" />, shortcut: "2" },
-  { id: "locations", label: "Locations", icon: <MapPinPlus className="size-5" />, shortcut: "3" },
-  { id: "zones", label: "Restricted zones", icon: <ShieldAlert className="size-5" />, shortcut: "4" },
-  { id: "warnings", label: "Warnings", icon: <AlertTriangle className="size-5" />, shortcut: "5" },
-  { id: "nearby", label: "Nearby services", icon: <HeartPulse className="size-5" />, shortcut: "6" },
-  { id: "analytics", label: "Analytics", icon: <BarChart3 className="size-5" />, shortcut: "7" },
-  { id: "activity", label: "Activity", icon: <Activity className="size-5" />, shortcut: "8" },
-  { id: "settings", label: "Settings", icon: <Settings className="size-5" />, shortcut: "9" },
-];
-const SECTION_TABS = SECTION_ITEMS;
-
-const SECTION_PANELS: Record<WorkspaceSection, ReactNode> = {
-  overview: <OverviewPanel />,
-  map: null,
-  locations: <LocationsPanel />,
-  zones: <ZonesPanel />,
-  warnings: <WarningsPanel />,
-  nearby: <NearbyPanel />,
-  analytics: <AnalyticsPanel />,
-  activity: <ActivityPanel />,
-  settings: <SettingsPanel />,
-};
-
-function buildFloatingActions(ws: GeoWorkspace, requestDraw: (m: Exclude<MapDrawMode, null>) => void): FloatingAction[] {
-  return [
-    {
-      key: "location",
-      label: "Add location",
-      icon: <MapPin className="size-4" />,
-      hidden: !ws.canEdit,
-      onClick: () => ws.openCreateLocation(),
-    },
-    {
-      key: "zone",
-      label: "Draw restricted zone",
-      icon: <ShieldAlert className="size-4" />,
-      hidden: !ws.canEdit,
-      active: ws.drawMode === "zone",
-      onClick: () => requestDraw(ws.drawMode === "zone" ? "location" : "zone"),
-    },
-    {
-      key: "boundary",
-      label: "Draw boundary",
-      icon: <Landmark className="size-4" />,
-      hidden: !ws.canEdit,
-      active: ws.drawMode === "boundary",
-      onClick: () => requestDraw(ws.drawMode === "boundary" ? "location" : "boundary"),
-    },
-    {
-      key: "edit-zones",
-      label: "Edit zone polygons",
-      icon: <Repeat className="size-4" />,
-      hidden: !ws.canEdit,
-      active: ws.editZonesMode,
-      onClick: () => {
-        ws.setEditZonesMode(!ws.editZonesMode);
-        ws.setSection("map");
-      },
-    },
-    {
-      key: "import",
-      label: "Import GeoJSON",
-      icon: <UploadCloud className="size-4" />,
-      hidden: !ws.canEdit,
-      onClick: () => ws.setSection("settings"),
-    },
-    {
-      key: "export",
-      label: "Export GeoJSON",
-      icon: <FileUp className="size-4" />,
-      onClick: () => void ws.handleExport(),
-    },
-  ];
-}
-
-interface InspectorDockProps {
-  section: WorkspaceSection;
-  panelWidth: number;
-  setPanelWidth: (w: number) => void;
-  collapsed: boolean;
-  onCollapsedChange: (c: boolean) => void;
-}
-
-/** Right-side, resizable inspector dock that hosts the active section panel. */
-function InspectorDock({ section, panelWidth, setPanelWidth, collapsed, onCollapsedChange }: InspectorDockProps) {
-  const ws = useGeoWorkspace();
-  const panel = SECTION_PANELS[section];
-
-  const isPanelSection = section !== "map" && panel !== null;
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (window.innerWidth < 1024) return;
-    const startX = e.clientX;
-    const startWidth = panelWidth;
-    const onMove = (ev: PointerEvent) => {
-      const next = Math.min(720, Math.max(320, startWidth + (startX - ev.clientX)));
-      setPanelWidth(next);
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
-  if (!isPanelSection) return null;
-
-  return (
-    <aside
-      className={cn(
-        "flex h-full min-h-0 flex-col border-border/70 bg-background",
-        "w-full rounded-2xl border shadow-sm",
-        "lg:w-[--panel-w] lg:rounded-none lg:border-y-0 lg:border-r lg:bg-muted/30",
-        ws.mobileView === "map" && "hidden lg:flex"
-      )}
-      style={{ "--panel-w": `${collapsed ? 56 : panelWidth}px` } as React.CSSProperties}
-    >
-      {collapsed ? (
-        <button
-          type="button"
-          onClick={() => onCollapsedChange(false)}
-          className="hidden h-full flex-col items-center gap-1 py-3 text-muted-foreground lg:flex"
-          aria-label="Expand panel"
-        >
-          <ChevronLeft className="size-4 rotate-180" />
-          <span className="[writing-mode:vertical-rl] rotate-180 text-xs font-semibold uppercase tracking-wider">
-            {SECTION_TABS.find((t) => t.id === section)?.label ?? section}
-          </span>
-        </button>
-      ) : (
-        <>
-          <div
-            role="separator"
-            onPointerDown={onPointerDown}
-            className="group absolute -left-1.5 top-0 z-20 hidden h-full w-3 cursor-col-resize items-center justify-center lg:flex"
-          >
-            <div className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-primary/60" />
-          </div>
-          <div className="flex items-center justify-between border-b border-border/50 px-3 py-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold capitalize">
-              {SECTION_TABS.find((t) => t.id === section)?.icon}
-              {SECTION_TABS.find((t) => t.id === section)?.label}
-            </h3>
-            <Button variant="ghost" size="icon" onClick={() => onCollapsedChange(true)} aria-label="Collapse panel">
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">{panel}</div>
-        </>
-      )}
-    </aside>
-  );
-}
-
-/** Toggle shown on small screens to switch between the map view and the panel view. */
-function MobileViewSwitcher() {
-  const ws = useGeoWorkspace();
-  return (
-    <div className="fixed bottom-4 left-1/2 z-[800] flex -translate-x-1/2 items-center gap-1 rounded-full border border-border/60 bg-background/95 p-1 shadow-lg backdrop-blur lg:hidden">
-      <button
-        type="button"
-        onClick={() => {
-          ws.setMobileView("map");
-          ws.setSection("map");
-        }}
-        className={cn(
-          "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
-          ws.mobileView === "map" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-        )}
-      >
-        <Map className="size-3.5" /> Map
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          ws.setMobileView("panel");
-          const target = ws.section === "map" ? "locations" : ws.section;
-          ws.setSection(target);
-        }}
-        className={cn(
-          "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
-          ws.mobileView === "panel" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-        )}
-      >
-        <Layers className="size-3.5" /> Panel
-      </button>
-    </div>
-  );
-}
-
-// -----------------------------------------------------------------------------
-// Overlays: selection drawers, dialogs, confirm, context menu & shortcut help
-// -----------------------------------------------------------------------------
-
-interface WorkspaceOverlaysProps {
-  selectedLocation: GeoLocation | null;
-  selectedLocationId: string | null;
-  onCloseLocation: () => void;
-  selectedZone: RestrictedZone | null;
-  selectedZoneId: string | null;
-  onCloseZone: () => void;
-  selectedBoundary: Boundary | null;
-  onCloseBoundary: () => void;
-  locationDialog: LocationDialogState;
-  setLocationDialog: React.Dispatch<React.SetStateAction<LocationDialogState>>;
-  warningDialog: WarningDialogState;
-  setWarningDialog: React.Dispatch<React.SetStateAction<WarningDialogState>>;
-  zoneDialog: { open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] };
-  setZoneDialog: React.Dispatch<React.SetStateAction<{ open: boolean; zone: RestrictedZone | null; polygon: GeoCoordinates[] }>>;
-  boundaryDialog: { open: boolean; polygon: GeoCoordinates[] };
-  setBoundaryDialog: React.Dispatch<React.SetStateAction<{ open: boolean; polygon: GeoCoordinates[] }>>;
-  shortcutsOpen: boolean;
-  setShortcutsOpen: (open: boolean) => void;
-  isZoneUpdating: boolean;
-  onToggleZoneActive: (zone: RestrictedZone) => void;
-  requestDraw: (m: Exclude<MapDrawMode, null>) => void;
-}
-
-function WorkspaceOverlays({
-  selectedLocation,
-  selectedLocationId,
-  onCloseLocation,
-  selectedZone,
-  selectedZoneId,
-  onCloseZone,
-  selectedBoundary,
-  onCloseBoundary,
-  locationDialog,
-  setLocationDialog,
-  warningDialog,
-  setWarningDialog,
-  zoneDialog,
-  setZoneDialog,
-  boundaryDialog,
-  setBoundaryDialog,
-  shortcutsOpen,
-  setShortcutsOpen,
-  isZoneUpdating,
-  onToggleZoneActive,
-  requestDraw,
-}: WorkspaceOverlaysProps) {
-  const ws = useGeoWorkspace();
-  const qc = useQueryClient();
-
-  const deleteIsBulk = ws.deleteTarget?.id === "__bulk__";
-  const deleteTitle = deleteIsBulk ? "Delete selected locations?" : `Delete ${ws.deleteTarget?.kind ?? "item"}?`;
-  const deleteDescription = deleteIsBulk
-    ? "This will permanently remove all selected locations and their related data."
-    : `This will permanently remove "${ws.deleteTarget?.name ?? ""}" and its related data. This action cannot be undone.`;
-
-  const showLocationSheet = selectedLocationId !== null && selectedLocation !== null;
-  const showZoneSheet = selectedZoneId !== null && selectedZone !== null;
-  const showBoundarySheet = selectedBoundary !== null;
-
-  return (
-    <>
-      {/* selection drawers */}
-      {showLocationSheet && selectedLocation && (
-        <Sheet open onOpenChange={(open) => !open && onCloseLocation()}>
-          <SheetContent
-            side="right"
-            showCloseButton={false}
-            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
-          >
-            <LocationDetailsPanel
-              location={selectedLocation}
-              onEdit={() => ws.openEditLocation(selectedLocation)}
-              onAddWarning={() => ws.openWarningDialog(selectedLocation)}
-              onDelete={() => ws.requestDelete({ kind: "location", id: selectedLocation.id, name: selectedLocation.nameEn })}
-              onClose={onCloseLocation}
-              canEdit={ws.canEdit}
-              canDelete={ws.canDelete}
-              allLocations={ws.locations}
-            />
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {showZoneSheet && selectedZone && (
-        <Sheet open onOpenChange={(open) => !open && onCloseZone()}>
-          <SheetContent
-            side="right"
-            showCloseButton={false}
-            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
-          >
-            <ZoneDrawer
-              zone={selectedZone}
-              open
-              onOpenChange={onCloseZone}
-              canEdit={ws.canEdit}
-              canDelete={ws.canDelete}
-              onEdit={() => ws.openZoneDialog(selectedZone)}
-              onDelete={() => ws.requestDelete({ kind: "zone", id: selectedZone.id, name: selectedZone.name })}
-              onToggleActive={() => onToggleZoneActive(selectedZone)}
-              isToggling={isZoneUpdating}
-            />
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {showBoundarySheet && selectedBoundary && (
-        <Sheet open onOpenChange={(open) => !open && onCloseBoundary()}>
-          <SheetContent
-            side="right"
-            showCloseButton={false}
-            className="w-full border-l border-border/70 bg-background p-0 sm:max-w-xl"
-          >
-            <BoundaryDrawer
-              boundary={selectedBoundary}
-              open
-              onOpenChange={onCloseBoundary}
-              canEdit={ws.canEdit}
-              canDelete={ws.canDelete}
-              onEdit={() => ws.openBoundaryDialog(selectedBoundary.polygon)}
-              onDelete={() => ws.requestDelete({ kind: "boundary", id: selectedBoundary.id, name: selectedBoundary.name })}
-            />
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {/* creation / edit dialogs */}
-      <LocationFormDialog
-        open={locationDialog.open}
-        onOpenChange={(open) => setLocationDialog((d) => ({ ...d, open }))}
-        location={locationDialog.location}
-        initialCoords={locationDialog.initialCoords}
-        reverse={locationDialog.reverse}
-      />
-
-      <WarningFormDialog
-        open={warningDialog.open}
-        onOpenChange={(open) => setWarningDialog((d) => ({ ...d, open }))}
-        locationId={warningDialog.location?.id ?? ""}
-        locationName={warningDialog.location?.nameEn ?? ""}
-      />
-
-      <RestrictedZoneFormDialog
-        open={zoneDialog.open}
-        onOpenChange={(open) => setZoneDialog((d) => ({ ...d, open, polygon: open ? d.polygon : [] }))}
-        zone={zoneDialog.zone}
-        polygon={zoneDialog.polygon}
-        onRequestDraw={() => {
-          setZoneDialog((d) => ({ ...d, open: false }));
-          requestDraw("zone");
-        }}
-      />
-
-      <BoundaryFormDialog
-        open={boundaryDialog.open}
-        onOpenChange={(open) => setBoundaryDialog((d) => ({ ...d, open }))}
-        polygon={boundaryDialog.polygon}
-        onRequestDraw={() => {
-          setBoundaryDialog((d) => ({ ...d, open: false }));
-          requestDraw("boundary");
-        }}
-        onCreated={(b) => {
-          qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) => (old ? [...old, b] : [b]));
-          toast.success("Boundary saved");
-        }}
-      />
-
-      {/* delete confirm */}
-      <ConfirmDialog
-        open={ws.deleteTarget !== null}
-        onOpenChange={(open) => !open && ws.requestDelete(null)}
-        title={deleteTitle}
-        description={deleteDescription}
-        confirmLabel={deleteIsBulk ? "Delete selected" : "Delete"}
-        variant="destructive"
-        isLoading={ws.isDeleting}
-        onConfirm={ws.confirmDelete}
-      />
-
-      {/* right-click context menu host */}
-      <ContextMenu state={ws.contextMenu} onClose={() => ws.setContextMenu(null)} />
-
-      {/* shortcut help */}
-      <ShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-    </>
-  );
-}
-
-/** Keyboard shortcut reference dialog. */
+/** Keyboard shortcut reference sheet. */
 function ShortcutsHelp({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const shortcuts: { key: string; label: string }[] = [
     { key: "1 – 9", label: "Jump to section" },
+    { key: "P", label: "Add location" },
+    { key: "Z", label: "Draw restricted zone" },
+    { key: "E", label: "Toggle geometry edit" },
     { key: "?", label: "Show this shortcut sheet" },
-    { key: "Esc", label: "Close dialogs / cancel" },
+    { key: "Esc", label: "Close drawers / cancel" },
   ];
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1198,5 +896,14 @@ function ShortcutsHelp({ open, onOpenChange }: { open: boolean; onOpenChange: (o
         </Button>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }

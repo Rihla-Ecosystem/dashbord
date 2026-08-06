@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import L from "leaflet";
 import {
@@ -11,7 +11,6 @@ import {
   Popup,
   CircleMarker,
   useMap,
-  useMapEvents,
 } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import {
@@ -32,7 +31,6 @@ import {
   Loader2,
   Navigation,
   MousePointer2,
-  Eraser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -53,7 +51,20 @@ import {
 import { fetchWeather, weatherDescription } from "./weather";
 import { geocodeAddress, parseCoordinateQuery, type GeocodeResult } from "./geoUtils";
 import { RiskHeatLayer, type HeatPoint } from "./map/heat-layer";
+import {
+  boundsToRing,
+  circleToRing,
+  centroidOfParts,
+  extractRing,
+  findSnap,
+  pointGeometry,
+  polygonGeometry,
+  type DraftGeometry,
+  type DraftPart,
+} from "./drawing/geometry";
 import type { Boundary, GeoCoordinates, GeoLocation, RestrictedZone } from "@/types/geocontext";
+
+type GCoords = GeoCoordinates;
 
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw";
@@ -61,7 +72,7 @@ import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
-export type MapDrawMode = "zone" | "boundary" | "location" | null;
+export type MapDrawMode = "point" | "polygon" | "rectangle" | "circle" | "multipolygon" | "zone" | "boundary" | null;
 
 export interface MapPoint {
   x: number;
@@ -77,6 +88,7 @@ export interface GeoContextMapProps {
   selectedZoneId?: string | null;
   selectedBoundaryId?: string | null;
   drawMode: MapDrawMode;
+  editMode?: boolean;
   editZonesMode?: boolean;
   basemap?: BasemapId;
   onBasemapChange?: (id: BasemapId) => void;
@@ -84,11 +96,17 @@ export interface GeoContextMapProps {
   onSelectLocation: (id: string) => void;
   onSelectZone?: (id: string) => void;
   onSelectBoundary?: (id: string) => void;
-  onMapClick: (latlng: { lat: number; lng: number }) => void;
-  onPolygonDrawn: (coords: GeoCoordinates[]) => void;
+  /** A shape was completed with the active draw tool. */
+  onGeometryDrawn: (geometry: DraftGeometry) => void;
+  /** One part of a multi-polygon was completed (multipolygon mode keeps active). */
+  onMultiPartDrawn?: (ring: GeoCoordinates[]) => void;
+  /** The user moved/resized/edited the draft geometry directly on the map. */
+  onDraftGeometryChange?: (geometry: DraftGeometry | null) => void;
   onZonePolygonEdited?: (id: string, coords: GeoCoordinates[]) => void;
   onLocationContextMenu?: (location: GeoLocation, point: MapPoint) => void;
   onZoneContextMenu?: (zone: RestrictedZone, point: MapPoint) => void;
+  /** External command handle; when omitted the map creates its own internal ref. */
+  commandRef?: React.MutableRefObject<MapCommand | null>;
   className?: string;
 }
 
@@ -99,6 +117,12 @@ export interface MapCommand {
   zoomOut: () => void;
   locate: () => void;
   fullscreen: () => void;
+  /** Imperatively replace the draft geometry overlay (create/edit/undo/redo). */
+  setDraftGeometry: (geometry: DraftGeometry | null) => void;
+  /** Read the current draft geometry from the editable overlay. */
+  getDraftGeometry: () => DraftGeometry | null;
+  /** Remove the draft overlay. */
+  clearDraftGeometry: () => void;
 }
 
 function pinIcon(color: string, selected: boolean, warning: boolean): L.DivIcon {
@@ -119,6 +143,21 @@ function pinIcon(color: string, selected: boolean, warning: boolean): L.DivIcon 
   });
 }
 
+function draftPinIcon(): L.DivIcon {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="position:relative;width:34px;height:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))">
+        <svg width="34" height="44" viewBox="0 0 24 34" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 0C5.4 0 0 5.2 0 11.6 0 20 12 34 12 34s12-14 12-22.4C24 5.2 18.6 0 12 0z" fill="#0b6f6b" stroke="#ffffff" stroke-width="1.5"/>
+          <circle cx="12" cy="11.5" r="4.2" fill="#ffffff" opacity="0.95"/>
+        </svg>
+      </div>`,
+    iconSize: [34, 44],
+    iconAnchor: [17, 40],
+  });
+}
+
 function warningIcon(severityColor: string): L.DivIcon {
   return L.divIcon({
     className: "rihla-warning-icon",
@@ -135,7 +174,6 @@ function warningIcon(severityColor: string): L.DivIcon {
   });
 }
 
-/** Renders the active basemap + optional label overlays (e.g. satellite labels). */
 function BaseLayers({ basemap }: { basemap: BasemapDef }) {
   return (
     <>
@@ -147,80 +185,240 @@ function BaseLayers({ basemap }: { basemap: BasemapDef }) {
   );
 }
 
-function MapClickCapture({ onMapClick, enabled }: { onMapClick: GeoContextMapProps["onMapClick"]; enabled: boolean }) {
-  useMapEvents({
-    click: (e) => {
-      if (enabled) onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
+// -----------------------------------------------------------------------------
+// Drawing + draft geometry controller
+// -----------------------------------------------------------------------------
+
+function readDraftFromFeatureGroup(fg: L.FeatureGroup | null): DraftGeometry | null {
+  if (!fg) return null;
+  const parts: DraftPart[] = [];
+  fg.eachLayer((layer) => {
+    const l = layer as L.Layer & { getLatLng?: () => L.LatLng; getLatLngs?: () => unknown };
+    if (l instanceof L.Marker) {
+      const p = l.getLatLng();
+      parts.push({ type: "point", coords: [{ lat: p.lat, lng: p.lng }] });
+    } else if (typeof l.getLatLngs === "function") {
+      parts.push({ type: "polygon", coords: extractRing(l.getLatLngs() as L.LatLng[]) });
+    }
   });
-  return null;
+  if (!parts.length) return null;
+  return { parts, centroid: centroidOfParts(parts) };
 }
 
-function DrawController({
-  mode,
-  onPolygonDrawn,
+function attachVertexSnap(fg: L.FeatureGroup, snapPoints: GCoords[], map: L.Map) {
+  if (!snapPoints.length) return;
+  const applySnap = (marker: L.Marker) => {
+    marker.on("drag", () => {
+      const latlng = marker.getLatLng();
+      const snapped = findSnap({ lat: latlng.lat, lng: latlng.lng }, snapPoints, 30);
+      if (snapped) marker.setLatLng(snapped);
+    });
+  };
+  const hook = () => {
+    fg.eachLayer((layer) => {
+      const editing = (layer as L.Polygon & { editing?: { _verticesHandlers?: Array<{ _vertexMarkers?: L.Marker[] }> } }).editing;
+      if (!editing) return;
+      editing._verticesHandlers?.forEach((h) => h._vertexMarkers?.forEach(applySnap));
+    });
+  };
+  hook();
+  map.on("draw:editstart", hook);
+  map.on("draw:editvertex", hook);
+}
+
+function DrawingController({
+  drawMode,
+  editMode,
+  snapPoints,
+  onGeometryDrawn,
+  onMultiPartDrawn,
+  onDraftGeometryChange,
+  commandRef,
 }: {
-  mode: MapDrawMode;
-  onPolygonDrawn: (coords: GeoCoordinates[]) => void;
+  drawMode: MapDrawMode;
+  editMode: boolean;
+  snapPoints: GCoords[];
+  onGeometryDrawn: (geometry: DraftGeometry) => void;
+  onMultiPartDrawn?: (ring: GeoCoordinates[]) => void;
+  onDraftGeometryChange?: (geometry: DraftGeometry | null) => void;
+  commandRef: React.MutableRefObject<MapCommand | null>;
 }) {
   const map = useMap();
-  const active = mode === "zone" || mode === "boundary";
-  const onPolygonDrawnRef = useRef(onPolygonDrawn);
+  const fgRef = useRef<L.FeatureGroup | null>(null);
+  const editRef = useRef<{ disable: () => void } | null>(null);
+  const editModeRef = useRef(editMode);
+  const snapRef = useRef(snapPoints);
   useEffect(() => {
-    onPolygonDrawnRef.current = onPolygonDrawn;
-  }, [onPolygonDrawn]);
-
+    editModeRef.current = editMode;
+  }, [editMode]);
   useEffect(() => {
-    if (!active) return;
-    const featureGroup = new L.FeatureGroup();
-    map.addLayer(featureGroup);
+    snapRef.current = snapPoints;
+  }, [snapPoints]);
 
-    const drawControl = new L.Control.Draw({
-      position: "topright",
-      draw: {
-        polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: "#0b6f6b" } },
-        rectangle: { shapeOptions: { color: "#0b6f6b" } },
-        circle: { shapeOptions: { color: "#0b6f6b" } },
-        circlemarker: false,
-        marker: false,
-        polyline: false,
-      },
-      edit: { featureGroup },
-    });
-    drawControl.addTo(map);
-
-    const onCreated = (e: L.LeafletEvent) => {
-      const event = e as unknown as { layer: L.Layer; layerType: string };
-      const layer = event.layer as L.Polygon & { getLatLngs?: () => unknown };
-      featureGroup.addLayer(event.layer as L.Layer);
-      if (event.layerType === "circle") {
-        const circle = layer as unknown as L.Circle;
-        const latlng = circle.getLatLng();
-        const radius = circle.getRadius();
-        const points: GeoCoordinates[] = [];
-        for (let i = 0; i < 24; i += 1) {
-          const angle = (i / 24) * Math.PI * 2;
-          points.push({
-            lat: latlng.lat + (radius / 111320) * Math.cos(angle),
-            lng: latlng.lng + (radius / (111320 * Math.max(0.2, Math.cos((latlng.lat * Math.PI) / 180)))) * Math.sin(angle),
-          });
-        }
-        onPolygonDrawnRef.current(points);
-        return;
-      }
-      const raw = layer.getLatLngs?.();
-      const ring = Array.isArray(raw) && Array.isArray((raw as unknown[])[0]) ? (raw as unknown[])[0] : (raw as unknown[]);
-      const coords: GeoCoordinates[] = (ring as L.LatLng[]).map((ll) => ({ lat: ll.lat, lng: ll.lng }));
-      if (coords.length >= 3) onPolygonDrawnRef.current(coords);
+  // --- active draw tool ---
+  useEffect(() => {
+    if (!drawMode) return;
+    const opts = {
+      shapeOptions: { color: "#0b6f6b", weight: 2, fillColor: "#0b6f6b", fillOpacity: 0.15 },
     };
+    let handler:
+      | L.Draw.Polygon
+      | L.Draw.Rectangle
+      | L.Draw.Circle
+      | L.Draw.Marker
+      | null = null;
+    const drawMap = map as unknown as L.DrawMap;
+    if (drawMode === "point") {
+      handler = new L.Draw.Marker(drawMap, { icon: draftPinIcon() });
+    } else if (drawMode === "rectangle") {
+      handler = new L.Draw.Rectangle(drawMap, opts);
+    } else if (drawMode === "circle") {
+      handler = new L.Draw.Circle(drawMap, { ...opts, showRadius: true, metric: true });
+    } else {
+      handler = new L.Draw.Polygon(drawMap, { ...opts, allowIntersection: false, showArea: true });
+    }
+    handler.enable();
+    return () => {
+      handler?.disable();
+    };
+  }, [drawMode, map]);
 
+  // --- shape completion ---
+  useEffect(() => {
+    const onCreated = (e: L.LeafletEvent) => {
+      const event = e as unknown as { layer: L.Layer & { getLatLng?: () => L.LatLng; getRadius?: () => number; getBounds?: () => L.LatLngBounds; getLatLngs?: () => unknown }; layerType: string };
+      const layer = event.layer;
+      if (drawMode === "point") {
+        const p = layer.getLatLng?.();
+        if (p) onGeometryDrawn(pointGeometry({ lat: p.lat, lng: p.lng }));
+      } else if (drawMode === "circle") {
+        const c = layer.getLatLng?.();
+        const radius = layer.getRadius?.();
+        if (c && radius !== undefined) {
+          onGeometryDrawn(polygonGeometry(circleToRing({ lat: c.lat, lng: c.lng }, radius)));
+        }
+      } else if (drawMode === "rectangle") {
+        const b = layer.getBounds?.();
+        if (b) {
+          const sw = b.getSouthWest();
+          const ne = b.getNorthEast();
+          onGeometryDrawn(
+            polygonGeometry(
+              boundsToRing({ lat: sw.lat, lng: sw.lng }, { lat: ne.lat, lng: ne.lng })
+            )
+          );
+        }
+      } else if (drawMode === "multipolygon") {
+        const latlngs = layer.getLatLngs?.();
+        if (latlngs) onMultiPartDrawn?.(extractRing(latlngs as L.LatLng[]));
+      } else {
+        const latlngs = layer.getLatLngs?.();
+        if (latlngs) onGeometryDrawn(polygonGeometry(extractRing(latlngs as L.LatLng[])));
+      }
+    };
     map.on("draw:created", onCreated as L.LeafletEventHandlerFn);
     return () => {
       map.off("draw:created", onCreated as L.LeafletEventHandlerFn);
-      map.removeControl(drawControl);
-      map.removeLayer(featureGroup);
     };
-  }, [map, active]);
+  }, [map, drawMode, onGeometryDrawn, onMultiPartDrawn]);
+
+  // --- rebuild overlay layers from a geometry ---
+  const rebuildLayers = useCallback(
+    (geometry: DraftGeometry | null) => {
+      if (editRef.current) {
+        editRef.current.disable();
+        editRef.current = null;
+      }
+      if (fgRef.current) {
+        map.removeLayer(fgRef.current);
+        fgRef.current = null;
+      }
+      if (!geometry || geometry.parts.length === 0) return;
+      const fg = new L.FeatureGroup();
+      geometry.parts.forEach((part) => {
+        if (part.type === "point" && part.coords[0]) {
+          fg.addLayer(
+            L.marker([part.coords[0].lat, part.coords[0].lng], {
+              icon: draftPinIcon(),
+              draggable: true,
+            })
+          );
+        } else if (part.type === "polygon" && part.coords.length >= 3) {
+          fg.addLayer(
+            L.polygon(
+              part.coords.map((p) => [p.lat, p.lng] as [number, number]),
+              { color: "#0b6f6b", weight: 2, fillColor: "#0b6f6b", fillOpacity: 0.15 }
+            )
+          );
+        }
+      });
+      map.addLayer(fg);
+      fgRef.current = fg;
+      if (editModeRef.current && fg.getLayers().length) {
+        const edit = new (L as unknown as { EditToolbar: { Edit: new (m: L.Map, o: object) => { enable: () => void; disable: () => void } } }).EditToolbar.Edit(map, {
+          featureGroup: fg,
+          edit: {
+            move: true,
+            selectedPathOptions: { color: "#0b6f6b", fillColor: "#0b6f6b", fillOpacity: 0.3 },
+          },
+          remove: false,
+        });
+        edit.enable();
+        editRef.current = edit;
+        attachVertexSnap(fg, snapRef.current, map);
+      }
+    },
+    [map]
+  );
+
+  // --- toggle edit mode on the existing overlay ---
+  useEffect(() => {
+    if (!fgRef.current) return;
+    if (editMode) {
+      if (!editRef.current) {
+        const edit = new (L as unknown as { EditToolbar: { Edit: new (m: L.Map, o: object) => { enable: () => void; disable: () => void } } }).EditToolbar.Edit(map, {
+          featureGroup: fgRef.current,
+          edit: {
+            move: true,
+            selectedPathOptions: { color: "#0b6f6b", fillColor: "#0b6f6b", fillOpacity: 0.3 },
+          },
+          remove: false,
+        });
+        edit.enable();
+        editRef.current = edit;
+        attachVertexSnap(fgRef.current, snapRef.current, map);
+      }
+    } else if (editRef.current) {
+      editRef.current.disable();
+      editRef.current = null;
+    }
+  }, [editMode, map]);
+
+  // --- register draft commands on the shared command handle ---
+  useEffect(() => {
+    const prev = commandRef.current ?? null;
+    commandRef.current = {
+      ...(prev ?? ({} as MapCommand)),
+      getDraftGeometry: () => readDraftFromFeatureGroup(fgRef.current),
+      setDraftGeometry: (g) => rebuildLayers(g),
+      clearDraftGeometry: () => rebuildLayers(null),
+    };
+  }, [commandRef, rebuildLayers]);
+
+  // --- emit live geometry changes when the user edits on the map ---
+  useEffect(() => {
+    const emit = () => {
+      if (fgRef.current) onDraftGeometryChange?.(readDraftFromFeatureGroup(fgRef.current));
+    };
+    map.on("draw:edited", emit);
+    map.on("draw:editmove", emit);
+    map.on("draw:editvertex", emit);
+    return () => {
+      map.off("draw:edited", emit);
+      map.off("draw:editmove", emit);
+      map.off("draw:editvertex", emit);
+    };
+  }, [map, onDraftGeometryChange]);
 
   return null;
 }
@@ -277,9 +475,7 @@ function EditZonesController({
       event.layers.eachLayer((layer) => {
         const id = idByLayer.get(layer);
         const poly = layer as L.Polygon;
-        const raw = poly.getLatLngs();
-        const ring = Array.isArray(raw) && Array.isArray((raw as unknown[])[0]) ? (raw as unknown[])[0] : (raw as unknown[]);
-        const coords: GeoCoordinates[] = (ring as L.LatLng[]).map((ll) => ({ lat: ll.lat, lng: ll.lng }));
+        const coords: GeoCoordinates[] = extractRing(poly.getLatLngs() as L.LatLng[]);
         if (id && coords.length >= 3) onEditedRef.current(id, coords);
       });
     };
@@ -437,7 +633,13 @@ function WeatherLayer() {
   );
 }
 
-function MapCommandProvider({ commandRef }: { commandRef: React.MutableRefObject<MapCommand | null> }) {
+function MapCommandProvider({
+  commandRef,
+  externalRef,
+}: {
+  commandRef: React.MutableRefObject<MapCommand | null>;
+  externalRef?: React.MutableRefObject<MapCommand | null>;
+}) {
   const map = useMap();
   useEffect(() => {
     const locate = () => {
@@ -452,7 +654,7 @@ function MapCommandProvider({ commandRef }: { commandRef: React.MutableRefObject
         void container.requestFullscreen?.();
       }
     };
-    commandRef.current = {
+    const handle: MapCommand = {
       flyTo: (latlng, zoom = Math.max(map.getZoom(), 12)) => {
         map.flyTo([latlng.lat, latlng.lng], zoom, { duration: 0.9 });
       },
@@ -461,7 +663,12 @@ function MapCommandProvider({ commandRef }: { commandRef: React.MutableRefObject
       zoomOut: () => map.zoomOut(),
       locate,
       fullscreen,
+      getDraftGeometry: () => null,
+      setDraftGeometry: () => undefined,
+      clearDraftGeometry: () => undefined,
     };
+    commandRef.current = handle;
+    if (externalRef) externalRef.current = handle;
     map.on("locationfound", onLocated);
     map.on("locationerror", onLocateError);
     function onLocated(e: L.LocationEvent) {
@@ -476,7 +683,7 @@ function MapCommandProvider({ commandRef }: { commandRef: React.MutableRefObject
       map.off("locationfound", onLocated);
       map.off("locationerror", onLocateError);
     };
-  }, [map, commandRef]);
+  }, [map, commandRef, externalRef]);
   return null;
 }
 
@@ -769,11 +976,15 @@ function SelectedBounds({
 function DrawBanner({ drawMode }: { drawMode: MapDrawMode }) {
   if (!drawMode) return null;
   const meta =
-    drawMode === "location"
-      ? { label: "Click anywhere on the map to place a location", icon: <MousePointer2 className="size-4" />, cls: "bg-primary/95 text-primary-foreground" }
+    drawMode === "point"
+      ? { label: "Click anywhere on the map to place the location", icon: <MousePointer2 className="size-4" />, cls: "bg-primary/95 text-primary-foreground" }
       : drawMode === "zone"
         ? { label: "Draw a polygon to define the restricted zone (Esc to cancel)", icon: <ShieldAlert className="size-4" />, cls: "bg-amber-500/95 text-white" }
-        : { label: "Draw the boundary polygon on the map (Esc to cancel)", icon: <MapIcon className="size-4" />, cls: "bg-indigo-500/95 text-white" };
+        : drawMode === "boundary"
+          ? { label: "Draw the boundary polygon on the map (Esc to cancel)", icon: <MapIcon className="size-4" />, cls: "bg-indigo-500/95 text-white" }
+          : drawMode === "multipolygon"
+            ? { label: "Draw each polygon, then press Done to finish", icon: <MapIcon className="size-4" />, cls: "bg-teal-600/95 text-white" }
+            : { label: `Draw a ${drawMode} on the map (Esc to cancel)`, icon: <MapIcon className="size-4" />, cls: "bg-primary/95 text-primary-foreground" };
   return (
     <div className={cn("pointer-events-none absolute bottom-4 left-1/2 z-[500] flex -translate-x-1/2 items-center gap-2 rounded-2xl px-4 py-2 text-xs font-semibold shadow-lg", meta.cls)}>
       {meta.icon}
@@ -791,6 +1002,7 @@ export function GeoContextMap({
   selectedZoneId,
   selectedBoundaryId,
   drawMode,
+  editMode,
   editZonesMode,
   basemap: basemapProp,
   onBasemapChange,
@@ -798,11 +1010,13 @@ export function GeoContextMap({
   onSelectLocation,
   onSelectZone,
   onSelectBoundary,
-  onMapClick,
-  onPolygonDrawn,
+  onGeometryDrawn,
+  onMultiPartDrawn,
+  onDraftGeometryChange,
   onZonePolygonEdited,
   onLocationContextMenu,
   onZoneContextMenu,
+  commandRef: externalCommandRef,
   className,
 }: GeoContextMapProps) {
   const markerCategories = useMemo(() => {
@@ -832,7 +1046,15 @@ export function GeoContextMap({
   };
   const commandRef = useRef<MapCommand | null>(null);
 
-  const markerLocations = useMemo(() => locations.filter((l) => markerCategories.has(l.category)), [locations, markerCategories]);
+  // Points render as clustered markers; polygon locations render as polygons.
+  const pointLocations = useMemo(
+    () => locations.filter((l) => !(l.polygon && l.polygon.length >= 3) && markerCategories.has(l.category)),
+    [locations, markerCategories]
+  );
+  const polygonLocations = useMemo(
+    () => locations.filter((l) => l.polygon && l.polygon.length >= 3 && markerCategories.has(l.category)),
+    [locations, markerCategories]
+  );
   const warningLocations = visibleLayers.warnings ? locations.filter((l) => l.warnings.some((w) => w.active)) : [];
   const visibleZones = useMemo(
     () =>
@@ -847,6 +1069,15 @@ export function GeoContextMap({
   );
   const visibleBoundaries = visibleLayers.boundaries ? boundaries : [];
   const aiLocations = visibleLayers.ai_recommendations ? locations.filter((l) => l.safetyScore < 75) : [];
+
+  // Snap points derived from visible locations (enables "snap to existing geometry").
+  const snapPoints = useMemo(() => {
+    if (!editMode && !drawMode) return [];
+    return locations
+      .filter((l) => markerCategories.has(l.category))
+      .map((l) => ({ lat: l.lat, lng: l.lng }))
+      .slice(0, 500);
+  }, [locations, markerCategories, editMode, drawMode]);
 
   return (
     <div className={cn("relative h-full min-h-[420px] overflow-hidden rounded-2xl", className)}>
@@ -869,9 +1100,16 @@ export function GeoContextMap({
         style={{ background: "#1f364d", minHeight: 420 }}
       >
         <BaseLayers basemap={basemapById(basemap)} />
-        <MapCommandProvider commandRef={commandRef} />
-        <MapClickCapture onMapClick={onMapClick} enabled={drawMode !== "zone" && drawMode !== "boundary"} />
-        <DrawController mode={drawMode} onPolygonDrawn={onPolygonDrawn} />
+        <MapCommandProvider commandRef={commandRef} externalRef={externalCommandRef} />
+        <DrawingController
+          drawMode={drawMode}
+          editMode={!!editMode}
+          snapPoints={snapPoints}
+          onGeometryDrawn={onGeometryDrawn}
+          onMultiPartDrawn={onMultiPartDrawn}
+          onDraftGeometryChange={onDraftGeometryChange}
+          commandRef={commandRef}
+        />
         <EditZonesController zones={visibleZones} active={editZonesMode ?? false} onEdited={onZonePolygonEdited ?? (() => undefined)} />
 
         {visibleBoundaries.map((b) => (
@@ -927,13 +1165,36 @@ export function GeoContextMap({
           );
         })}
 
-        {visibleLayers.weather_layer && <WeatherLayer />}
+        {/* Area-based locations rendered as polygons */}
+        {polygonLocations.map((location) => {
+          const meta = categoryMeta(location.category);
+          const selected = selectedLocationId === location.id;
+          return (
+            <Polygon
+              key={`pl-${location.id}`}
+              positions={location.polygon!.map((p) => [p.lat, p.lng] as [number, number])}
+              pathOptions={{
+                color: selected ? "#0b6f6b" : meta.color,
+                weight: selected ? 4 : 2,
+                fillColor: meta.color,
+                fillOpacity: selected ? 0.3 : 0.15,
+              }}
+              eventHandlers={{
+                click: () => onSelectLocation(location.id),
+                contextmenu: (e) => {
+                  if (onLocationContextMenu) {
+                    const oe = e.originalEvent as MouseEvent;
+                    onLocationContextMenu(location, { x: oe.clientX, y: oe.clientY });
+                  }
+                },
+              }}
+            >
+              <Popup>{location.nameEn}</Popup>
+            </Polygon>
+          );
+        })}
 
-        {visibleLayers.traffic_layer && (
-          <div className="leaflet-control absolute bottom-16 right-3 z-[500] max-w-xs rounded-xl border border-border/50 bg-card/95 px-3 py-2 text-xs text-muted-foreground shadow-md backdrop-blur">
-            Traffic layer is not yet connected to a live traffic provider.
-          </div>
-        )}
+        {visibleLayers.weather_layer && <WeatherLayer />}
 
         {visibleLayers.ai_recommendations &&
           aiLocations.map((l) => (
@@ -963,9 +1224,9 @@ export function GeoContextMap({
 
         {warningLocations.length > 0 && <WarningMarkers locations={warningLocations} onClick={onSelectLocation} />}
 
-        {markerLocations.length > 0 && (
+        {pointLocations.length > 0 && (
           <MarkerClusterGroup chunkedLoading polygonOptions={{ color: "#0b6f6b" }} showCoverageOnHover={false}>
-            {markerLocations.map((location) => (
+            {pointLocations.map((location) => (
               <LocationMarker
                 key={location.id}
                 location={location}
@@ -985,13 +1246,6 @@ export function GeoContextMap({
       <MapTools commandRef={commandRef} />
       <BasemapSwitcher basemap={basemap} onChange={changeBasemap} />
       <DrawBanner drawMode={drawMode} />
-
-      {editZonesMode && (
-        <div className="pointer-events-none absolute left-3 top-16 z-[500] flex items-center gap-2 rounded-xl bg-emerald-500/95 px-3 py-2 text-xs font-medium text-white shadow-lg">
-          <Eraser className="size-4" />
-          Edit mode: drag the zone handles, then save from the sidebar
-        </div>
-      )}
     </div>
   );
 }

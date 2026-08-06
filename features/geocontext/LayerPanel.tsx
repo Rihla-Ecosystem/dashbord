@@ -19,7 +19,7 @@ interface LayerPanelProps {
 const GROUPS: { title: string; kind: "marker" | "geo" | "overlay"; ids: string[] }[] = [
   { title: "Places", kind: "marker", ids: ["tourist_attractions", "photography_restricted", "hotels", "restaurants", "hospitals", "police_stations", "pharmacies", "transportation", "atms", "embassies"] },
   { title: "Geo", kind: "geo", ids: ["restricted_areas", "military_zones", "boundaries"] },
-  { title: "Overlays", kind: "overlay", ids: ["warnings", "weather_layer", "traffic_layer", "ai_recommendations", "risk_heatmap"] },
+  { title: "Overlays", kind: "overlay", ids: ["warnings", "weather_layer", "ai_recommendations", "risk_heatmap"] },
 ];
 
 export function LayerPanel({

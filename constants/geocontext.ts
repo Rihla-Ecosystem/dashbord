@@ -225,7 +225,6 @@ export const MAP_LAYERS: MapLayerDef[] = [
   { id: "embassies", label: "Embassies", kind: "markers", categories: ["embassy"], visible: false },
   { id: "boundaries", label: "Governorate Boundaries", kind: "geo", visible: true },
   { id: "weather_layer", label: "Weather", kind: "overlay", visible: false },
-  { id: "traffic_layer", label: "Traffic", kind: "overlay", visible: false },
   { id: "ai_recommendations", label: "AI Recommendations", kind: "overlay", visible: false },
   { id: "risk_heatmap", label: "Risk Heatmap", kind: "overlay", visible: false },
 ];

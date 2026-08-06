@@ -5,6 +5,7 @@ import { geocontextApi, type LocationQuery, type PaginatedLocations } from "@/se
 import { GEO_QUERY_KEYS } from "@/constants/geocontext";
 import { fetchWeather } from "@/features/geocontext/weather";
 import type {
+  Boundary,
   GeoJSONFeatureCollection,
   GeoLocation,
   LocationInput,
@@ -343,5 +344,40 @@ export function useGovernorates() {
     queryFn: () => geocontextApi.getGovernorates(),
     staleTime: 5 * 60_000,
     gcTime: 10 * 60_000,
+  });
+}
+
+export function useCreateBoundary() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Omit<Boundary, "id" | "createdAt">) => geocontextApi.createBoundary(input),
+    onSuccess: (boundary) => {
+      qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) => (old ? [...old, boundary] : [boundary]));
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
+export function useUpdateBoundary(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: Partial<Omit<Boundary, "id" | "createdAt">>) => geocontextApi.updateBoundary(id, input),
+    onSuccess: (boundary) => {
+      qc.setQueryData<Boundary[]>(GEO_QUERY_KEYS.boundaries, (old) =>
+        old ? old.map((b) => (b.id === id ? boundary : b)) : old
+      );
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
+  });
+}
+
+export function useDeleteBoundary() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => geocontextApi.deleteBoundary(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.boundaries });
+      qc.invalidateQueries({ queryKey: GEO_QUERY_KEYS.activity });
+    },
   });
 }

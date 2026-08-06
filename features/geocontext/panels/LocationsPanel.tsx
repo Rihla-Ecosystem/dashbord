@@ -176,8 +176,8 @@ export function LocationsPanel() {
               selectedId={ws.selectedLocationId ?? undefined}
               sorting={ws.sorting}
               onSortingChange={ws.setSorting}
-              onSelect={(location) => ws.selectLocation(location.id)}
-              onEdit={ws.openEditLocation}
+              onSelect={(location) => ws.openLocation(location, "view")}
+              onEdit={(location) => ws.openLocation(location, "edit")}
               onDelete={(location) => ws.requestDelete({ kind: "location", name: location.nameEn, id: location.id })}
               onRowContextMenu={(location, e) =>
                 ws.setContextMenu({
@@ -188,14 +188,14 @@ export function LocationsPanel() {
                       key: "view",
                       label: "View on map",
                       icon: <EyeIcon />,
-                      onSelect: () => ws.selectLocation(location.id),
+                      onSelect: () => ws.openLocation(location, "view"),
                     },
                     {
                       key: "edit",
                       label: "Edit",
                       icon: <EditIcon />,
                       disabled: !ws.canEdit,
-                      onSelect: () => ws.openEditLocation(location),
+                      onSelect: () => ws.openLocation(location, "edit"),
                     },
                     {
                       key: location.status === "published" ? "unpublish" : "publish",
