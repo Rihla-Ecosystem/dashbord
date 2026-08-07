@@ -18,6 +18,7 @@ import {
   HiOutlineLogout,
   HiOutlineDatabase,
   HiOutlineGlobeAlt,
+  HiOutlineBell,
 } from "react-icons/hi";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,12 +43,13 @@ const iconMap: Record<string, React.ReactNode> = {
   settings: <HiOutlineCog className="size-5" />,
   vectorDb: <HiOutlineDatabase className="size-5" />,
   geocontext: <HiOutlineGlobeAlt className="size-5" />,
+  notifications: <HiOutlineBell className="size-5" />,
 };
 
 const NAV_GROUPS: { title: string; items: string[] }[] = [
   { title: "Overview", items: ["dashboard", "analytics"] },
   { title: "Management", items: ["users", "roles", "badges"] },
-  { title: "Services", items: ["geo", "geocontext", "environment", "vectorDb"] },
+  { title: "Services", items: ["geo", "geocontext", "environment", "vectorDb", "notifications"] },
   { title: "Finance", items: ["payments", "tokenPackages", "tokenWallets"] },
   { title: "System", items: ["audit", "settings"] },
 ];

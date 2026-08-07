@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { useUsers, useUserMutations } from "@/hooks/useUsers";
 import type { User, UserRole, Gender } from "@/types";
-import { formatDate, formatXp, getInitials, formatNumber, isAdmin } from "@/utils";
+import { formatDate, formatXp, getInitials, formatNumber } from "@/utils";
 import { GENDER_OPTIONS, DEFAULT_PAGE_SIZE } from "@/constants";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/services/api";
@@ -205,13 +205,12 @@ export default function UsersPage() {
       try {
         const rolesData : { id: number; name: string }[]  = await dashboardApi.getRoles();
         setRoles(rolesData);
-         console.log("Roles fetched:", roles);
       } catch (error) {
         console.error("Failed to fetch roles:", error);
       }
     };
     fetchRoles();
-   
+
   }, []);
   
 
@@ -318,7 +317,7 @@ export default function UsersPage() {
         ),
       },
     ],
-    [isAdmin]
+    [isAdmin, roles]
   );
 
   const hasFilters = !!(role || gender || verified || banned || deleted || dateFrom || dateTo);

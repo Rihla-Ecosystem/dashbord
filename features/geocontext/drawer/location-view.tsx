@@ -417,6 +417,9 @@ export function LocationViewTabs({ location, tab, canEdit, activityEvents = [] }
           {location.images.length ? (
             <div className="grid grid-cols-3 gap-2">
               {location.images.map((img) => (
+                // User-generated media from an external CDN; next/image would need a
+                // remote pattern and dynamic width/height, so a plain <img> is used.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img key={img.id} src={img.url} alt={img.caption ?? location.nameEn} className="aspect-video w-full rounded-lg object-cover" />
               ))}
             </div>

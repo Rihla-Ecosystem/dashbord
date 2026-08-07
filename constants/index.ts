@@ -82,6 +82,22 @@ export const QUERY_KEYS = {
   systemHealth: ["system-health"] as const,
   adminAssistant: ["admin-assistant"] as const,
 
+  adminNotifications: (params?: unknown) =>
+    ["admin-notifications", params] as const,
+  notificationAnalytics: ["notification-analytics"] as const,
+  notificationReadUnread: ["notification-read-unread"] as const,
+  notificationTemplates: (params?: unknown) =>
+    ["notification-templates", params] as const,
+  notificationHistory: (params?: unknown) =>
+    ["notification-history", params] as const,
+  notificationLogs: (params?: unknown) =>
+    ["notification-logs", params] as const,
+  notificationContextReports: (params?: unknown) =>
+    ["notification-context-reports", params] as const,
+  notificationContextReport: (id: string) =>
+    ["notification-context-report", id] as const,
+  notificationSettings: ["notification-settings"] as const,
+
 } as const;
 
 export interface NavItem {
@@ -106,6 +122,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
   { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
+  { href: "/notifications", label: "Notifications", icon: "notifications", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" ,  roles: ["ADMIN", "MODERATOR"] },
 
 ];
@@ -131,6 +148,7 @@ export const PROTECTED_ROUTES = [
   "/token-packages",
   "/token-wallets",
   "/audit-logs",
+  "/notifications",
   "/settings",
   "/profile",
   "/vector-db",

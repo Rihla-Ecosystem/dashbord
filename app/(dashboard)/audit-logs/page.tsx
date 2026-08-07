@@ -99,7 +99,7 @@ export default function AuditLogsPage() {
 
       <SearchBar
         value={search}
-        onChange={setSearch}
+        onChange={(v) => { setSearch(v); debouncedSetSearch(v); }}
         placeholder="Search logs..."
       />
 

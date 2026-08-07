@@ -32,16 +32,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCollections, usePoints, useDeleteCollection, useDeletePoint } from "@/hooks/useVectorDb";
 import { vectorDbApi } from "@/services/api";
-import { formatDateTime } from "@/utils";
 import { toast } from "sonner";
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
 
 function truncateText(text: string, maxLen: number = 120): string {
   if (text.length <= maxLen) return text;
@@ -107,7 +98,7 @@ export default function VectorDbPage() {
       setUploadCategory("uploaded");
       setUploadCollection("");
       refetchCollections();
-    } catch (error) {
+    } catch {
       toast.error("Upload failed");
     } finally {
       setUploading(false);

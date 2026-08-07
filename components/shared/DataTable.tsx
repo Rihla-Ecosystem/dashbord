@@ -46,6 +46,10 @@ export function DataTable<TData>({
   getRowClassName,
   className,
 }: DataTableProps<TData>) {
+  // TanStack Table's `useReactTable()` returns functions that cannot be memoized
+  // safely by React Compiler (a known library limitation), so the compiler rule is
+  // disabled for this call. The table is fully controlled by its props.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
