@@ -98,6 +98,13 @@ export const QUERY_KEYS = {
     ["notification-context-report", id] as const,
   notificationSettings: ["notification-settings"] as const,
 
+  aiUsage: ["ai-usage"] as const,
+  shadowPricingSummary: ["shadow-pricing-summary"] as const,
+  shadowPricingObservations: (params?: unknown) =>
+    ["shadow-pricing-observations", params] as const,
+  rateCards: (params?: unknown) => ["rate-cards", params] as const,
+  rateCardDetail: (version: string) => ["rate-card-detail", version] as const,
+  billingRecovery: (params?: unknown) => ["billing-recovery", params] as const,
 } as const;
 
 export interface NavItem {
@@ -121,6 +128,10 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/payments", label: "Payments", icon: "payments", roles: ["ADMIN"] },
   { href: "/token-packages", label: "Token Packages", icon: "tokenPackages", roles: ["ADMIN"] },
   { href: "/token-wallets", label: "Token Wallets", icon: "tokenWallets", roles: ["ADMIN"] },
+  { href: "/ai-billing", label: "AI Billing", icon: "aiBillingOverview", roles: ["ADMIN"] },
+  { href: "/ai-billing/rate-cards", label: "AI Rate Cards", icon: "rateCards", roles: ["ADMIN"] },
+  { href: "/ai-billing/shadow-pricing", label: "Shadow Pricing", icon: "shadowPricing", roles: ["ADMIN"] },
+  { href: "/ai-billing/recovery", label: "Billing Recovery", icon: "billingRecovery", roles: ["ADMIN"] },
   { href: "/audit-logs", label: "Audit Logs", icon: "audit", roles: ["ADMIN", "MODERATOR"] },
   { href: "/notifications", label: "Notifications", icon: "notifications", roles: ["ADMIN", "MODERATOR"] },
   { href: "/settings", label: "Settings", icon: "settings" ,  roles: ["ADMIN", "MODERATOR"] },
@@ -147,6 +158,10 @@ export const PROTECTED_ROUTES = [
   "/payments",
   "/token-packages",
   "/token-wallets",
+  "/ai-billing",
+  "/ai-billing/rate-cards",
+  "/ai-billing/shadow-pricing",
+  "/ai-billing/recovery",
   "/audit-logs",
   "/notifications",
   "/settings",

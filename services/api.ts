@@ -11,3 +11,5 @@ export { vectorDbApi } from "./vector-db";
 export { enterpriseApi } from "./enterprise";
 export { assistantApi } from "./assistant";
 export { geocontextApi } from "./geocontext";
+export { aiBillingApi } from "./ai-billing";
+
